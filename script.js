@@ -4,7 +4,7 @@
    ============================================================ */
 
 const CONFIG = {
-  TELEGRAM_USERNAME: "@jascoav", // TODO: adminning haqiqiy Telegram username'i
+  TELEGRAM_USERNAME: "jascoav", // TODO: adminning haqiqiy Telegram username'i
   PRICE_PHOTO: 50000,
   PRICE_VIDEO: 100000,
 };
