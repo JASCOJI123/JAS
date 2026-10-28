@@ -16,6 +16,7 @@ import androidx.media3.common.audio.ChannelMixingMatrix
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.TextureOverlay
 import androidx.media3.effect.Presentation
 import androidx.media3.effect.SpeedChangeEffect
 import androidx.media3.transformer.Composition
@@ -62,7 +63,7 @@ object MontajComposer {
         )
         videoEffects += state.filter.effects()
         if (state.overlays.isNotEmpty()) {
-            videoEffects += OverlayEffect(ImmutableList.of(TimedTextOverlay(state.overlays, WIDTH, HEIGHT)))
+            videoEffects += OverlayEffect(ImmutableList.of<TextureOverlay>(TimedTextOverlay(state.overlays, WIDTH, HEIGHT)))
         }
 
         return Composition.Builder(sequences)

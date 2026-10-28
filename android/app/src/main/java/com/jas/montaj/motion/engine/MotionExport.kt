@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.effect.BitmapOverlay
 import androidx.media3.effect.OverlayEffect
+import androidx.media3.effect.TextureOverlay
 import androidx.media3.transformer.Composition
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.EditedMediaItemSequence
@@ -33,7 +34,7 @@ object MotionExport {
             .build()
         val overlay = MotionFrameOverlay(project, MotionRenderer(frames))
         return Composition.Builder(EditedMediaItemSequence(listOf(item)))
-            .setEffects(Effects(emptyList(), listOf(OverlayEffect(ImmutableList.of(overlay)))))
+            .setEffects(Effects(emptyList(), listOf(OverlayEffect(ImmutableList.of<TextureOverlay>(overlay)))))
             .build()
     }
 
