@@ -14,6 +14,22 @@ SwiftUI va AVFoundation'da yozilgan native iOS ilova (iOS 16 va undan yuqori). V
 
 Gorizontal videolar 9:16 kadrga to'liq sig'diriladi, bo'sh joy xira fon bilan to'ldiriladi.
 
+## Motion rejimi (mini After Effects)
+
+Pastdagi **Motion** tab'i:
+
+- **Qatlamlar:** Video, Rasm, Matn, Shakl (to'rtburchak, yumaloq, ellips, uchburchak, yulduz), Solid. Ko'rinish, tartib (oldinga/orqaga), nusxa, In/Out vaqti
+- **Keyframe:** Joyi, O'lcham, Burilish, Shaffoflik va effekt miqdori. ⏱ tugmasi keyframe qo'yadi, keyin vaqtni surib qiymatni o'zgartirsangiz yangi keyframe avtomatik qo'shiladi
+- **Easing:** Chiziqli, Ease In, Ease Out, Easy Ease, Overshoot, Hold
+- **Barmoq bilan boshqarish:** ko'rish oynasida qatlamni surish, ikki barmoq bilan kattalashtirish va burish
+- **Matn animatsiyalari:** Yozuv mashinkasi, Harfma-harf paydo bo'lish, Pastdan chiqish, Sakrab chiqish, To'lqin
+- **Effektlar:** Blur, Glow, Chromatic aberration, Shake, Yorqinlik, To'yinganlik, Hue, Vignette
+- **Mask:** to'rtburchak yoki ellips, feather, teskari (inverted)
+- **Blend mode:** Normal, Add, Screen, Multiply, Overlay, Soft Light, Lighten, Darken, Difference
+- **Loyiha:** davomiyligi 1–60 soniya, fon rangi, 1080×1920 30fps eksport
+
+Cheklov: loyiha hozircha ilova yopilganda saqlanmaydi, tayyor videoni eksport qilib oling.
+
 ## iPhone'ga o'rnatish (Windows orqali, Mac kerak emas)
 
 ### 1. .ipa faylini yuklab olish
@@ -43,10 +59,14 @@ ios/
     ├── Engine/              ← kompozitsiya, kadr kompozitori, matn renderi, eksport
     ├── Editor/              ← EditorViewModel (holat va amallar)
     ├── Views/               ← SwiftUI ekranlar
-    └── Support/             ← import, formatlash, xatolar
+    ├── Support/             ← import, formatlash, xatolar
+    └── Motion/
+        ├── Model/           ← Animatable/Keyframe/Easing, MotionLayer, effekt, mask
+        ├── Engine/          ← kadr renderi, matn/shakl, effekt, kompozitor, builder
+        └── Views/           ← ko'rish oynasi, timeline, inspektor
 ```
 
-Ko'rish (preview) va eksport bir xil `MontajCompositor` orqali chiziladi, shuning uchun ekranda ko'ringan narsa tayyor videoda ham aynan shunday chiqadi.
+Ko'rish (preview) va eksport bir xil kompozitor (`MontajCompositor` / `MotionCompositor`) orqali chiziladi, shuning uchun ekranda ko'ringan narsa tayyor videoda ham aynan shunday chiqadi. Motion'da xususiyat o'zgarganda kompozitsiya qayta qurilmaydi, faqat kadr qayta chiziladi (`MotionRenderState`). Shuning uchun tahrirlash tez ishlaydi.
 
 ## Mac'da ishlab chiqish (ixtiyoriy)
 
