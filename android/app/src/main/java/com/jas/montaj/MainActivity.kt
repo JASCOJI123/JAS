@@ -18,6 +18,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.jas.montaj.common.MontajTheme
+import com.jas.montaj.montaj.ui.MontajScreen
+import com.jas.montaj.motion.ui.MotionScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,9 +46,10 @@ class MainActivity : ComponentActivity() {
                     },
                 ) { padding ->
                     val modifier = Modifier.padding(padding)
+                    // Ikkala rejim ham xotirada qoladi: tab almashganda loyiha yo'qolmaydi.
                     when (tab) {
-                        0 -> Text("Montaj", modifier)
-                        else -> Text("Motion", modifier)
+                        0 -> MontajScreen(modifier)
+                        else -> MotionScreen(modifier)
                     }
                 }
             }
