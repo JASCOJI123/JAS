@@ -1,0 +1,63 @@
+name: iOS ilova (Montaj) — .ipa yig'ish
+
+on:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Xcode versiyasi
+        run: xcodebuild -version
+
+      - name: XcodeGen o'rnatish
+        run: brew install xcodegen
+
+      - name: Xcode loyihasini yaratish
+        run: xcodegen generate
+
+      - name: Ilovani yig'ish (imzosiz)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Montaj.xcodeproj \
+            -scheme Montaj \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: .ipa yaratish
+        run: |
+          mkdir -p build/Payload
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/Montaj.app build/Payload/
+          cd build && zip -qry Montaj.ipa Payload
+
+      - name: .ipa ni yuklash
+        uses: actions/upload-artifact@v4
+        with:
+          name: Montaj-ipa
+          path: ios/build/Montaj.ipa
+          retention-days: 30
