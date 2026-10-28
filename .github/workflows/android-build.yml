@@ -1,0 +1,57 @@
+name: Android ilova (Montaj) — APK yig'ish
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      # Har safar bir xil imzo bo'lishi uchun: yangi APK eskisining ustiga o'rnatiladi.
+      - name: Imzo kalitini keshdan olish
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: montaj-debug-keystore-v1
+
+      - name: APK yig'ish
+        run: gradle --no-daemon assembleRelease
+
+      - name: APK nomini o'zgartirish
+        run: cp app/build/outputs/apk/release/app-release.apk Montaj.apk
+
+      - name: APK ni yuklash
+        uses: actions/upload-artifact@v4
+        with:
+          name: Montaj-apk
+          path: android/Montaj.apk
+          retention-days: 30
