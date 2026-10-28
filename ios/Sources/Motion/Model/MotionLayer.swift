@@ -68,7 +68,7 @@ struct TextContent: Hashable {
     var isBold: Bool = true
     var color: RGBAColor = .white
     var hasShadow: Bool = true
-    var animation: TextAnimation = .pop
+    var animationStyle: TextAnimation = .pop
     /// Barcha harflar chiqib bo'lishi uchun ketadigan vaqt (soniya).
     var animationDuration: Double = 1.2
 }

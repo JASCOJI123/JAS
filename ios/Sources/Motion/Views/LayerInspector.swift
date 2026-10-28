@@ -148,11 +148,11 @@ private struct TextContentEditor: View {
 
             Divider()
             Text("Matn animatsiyasi").font(.headline)
-            Picker("Animatsiya", selection: $text.animation) {
+            Picker("Animatsiya", selection: $text.animationStyle) {
                 ForEach(TextAnimation.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.menu)
-            if text.animation != .none && text.animation != .wave {
+            if text.animationStyle != .none && text.animationStyle != .wave {
                 ValueRow(title: "Davomiyligi", value: $text.animationDuration, range: 0.2...5, step: 0.1, format: NumberFormat.seconds)
             }
             Text("Animatsiya qatlam boshlanganda (In) ishga tushadi.")

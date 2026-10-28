@@ -61,7 +61,7 @@ enum TextRenderer {
 
     /// Animatsiya tugaganmi yoki umuman yo'qmi (unda rasmni keshlash mumkin).
     static func isStatic(_ content: TextContent, localTime: Double) -> Bool {
-        switch content.animation {
+        switch content.animationStyle {
         case .none: return true
         case .wave: return false
         default: return localTime >= content.animationDuration
@@ -102,7 +102,7 @@ enum TextRenderer {
         let stagger = count > 1 ? (total - glyphDuration) / Double(count - 1) : 0
         let progress = min(max((localTime - Double(index) * stagger) / glyphDuration, 0), 1)
 
-        switch content.animation {
+        switch content.animationStyle {
         case .none:
             return GlyphState()
         case .typewriter:
