@@ -10,8 +10,13 @@ struct MontajApp: App {
 
     var body: some Scene {
         WindowGroup {
-            EditorView()
-                .preferredColorScheme(.dark)
+            TabView {
+                EditorView()
+                    .tabItem { Label("Montaj", systemImage: "film.stack") }
+                MotionEditorView()
+                    .tabItem { Label("Motion", systemImage: "sparkles") }
+            }
+            .preferredColorScheme(.dark)
         }
     }
 }

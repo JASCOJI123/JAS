@@ -51,7 +51,7 @@ struct EditorView: View {
                 pickerItems = []
             }
         }
-        .overlay { ExportOverlay(viewModel: viewModel) }
+        .overlay { ExportOverlay(state: viewModel.exportState, onDismiss: { viewModel.dismissExportResult() }) }
         .overlay {
             if viewModel.isImporting {
                 ProgressView("Yuklanmoqda…")
@@ -138,11 +138,12 @@ struct EditorView: View {
     }
 }
 
-private struct ExportOverlay: View {
-    @ObservedObject var viewModel: EditorViewModel
+struct ExportOverlay: View {
+    let state: ExportState
+    let onDismiss: () -> Void
 
     var body: some View {
-        switch viewModel.exportState {
+        switch state {
         case .idle:
             EmptyView()
         case .exporting(let progress):
@@ -166,7 +167,7 @@ private struct ExportOverlay: View {
                     Label("Ulashish", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.borderedProminent)
-                Button("Yopish") { viewModel.dismissExportResult() }
+                Button("Yopish", action: onDismiss)
             }
         }
     }
