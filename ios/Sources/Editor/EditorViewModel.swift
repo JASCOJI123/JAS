@@ -152,7 +152,7 @@ final class EditorViewModel: ObservableObject {
             item.audioTimePitchAlgorithm = .spectral
             player.replaceCurrentItem(with: item)
             if resumeTime.isValid, resumeTime > .zero {
-                player.seek(to: resumeTime, toleranceBefore: .zero, toleranceAfter: .zero)
+                await player.seek(to: resumeTime, toleranceBefore: .zero, toleranceAfter: .zero)
             }
             if wasPlaying { player.play() }
             totalDuration = built.duration.seconds
