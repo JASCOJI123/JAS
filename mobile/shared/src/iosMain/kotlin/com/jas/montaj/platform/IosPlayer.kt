@@ -130,6 +130,17 @@ internal object CompositionFactory {
                 }
             }
         }
+        for (voice in timeline.voiceovers) {
+            val asset = IosMediaBackend.asset(voice.path)
+            val source = asset.tracksWithMediaType(AVMediaTypeAudio).firstOrNull() as? AVAssetTrack ?: continue
+            val length = minOf(voice.duration, CMTimeGetSeconds(asset.duration), cursor - voice.startAt)
+            if (length <= 0.05) continue
+            val track = composition.addMutableTrackWithMediaType(AVMediaTypeAudio, preferredTrackID = kCMPersistentTrackID_Invalid) ?: continue
+            track.insertTimeRange(CMTimeRangeMake(time(0.0), time(length)), ofTrack = source, atTime = time(voice.startAt), error = null)
+            parameters += AVMutableAudioMixInputParameters.audioMixInputParametersWithTrack(track).apply {
+                setVolume(voice.volume, atTime = time(0.0))
+            }
+        }
         val mix = AVMutableAudioMix()
         mix.setInputParameters(parameters)
         return BuiltComposition(composition, mix, cursor)

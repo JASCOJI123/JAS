@@ -20,6 +20,9 @@ interface MediaBackend {
     /** Montaj ko'rish oynasi uchun pleyer. */
     fun createPlayer(): PreviewPlayer
 
+    /** Mikrofondan ovoz yozuvchi (voiceover). */
+    fun createRecorder(): AudioRecorder
+
     /**
      * Kadrlarni [ExportJob.renderFrame] chizadi, platforma ularni videoga yozadi,
      * ovozlarni aralashtiradi va galereyaga saqlaydi.
@@ -55,7 +58,11 @@ data class PreviewTimeline(
     val musicDuration: Double,
     val originalVolume: Float,
     val musicVolume: Float,
+    val voiceovers: List<PreviewVoice> = emptyList(),
 )
+
+/** Tayyor videoning [startAt] soniyasidan ijro etiladigan ovoz yozuvi. */
+data class PreviewVoice(val path: String, val startAt: Double, val duration: Double, val volume: Float)
 
 data class PreviewClip(val path: String, val start: Double, val end: Double, val speed: Double)
 
@@ -68,6 +75,13 @@ interface PreviewPlayer {
     fun pause()
     fun seek(timeSec: Double)
     fun release()
+}
+
+interface AudioRecorder {
+    /** Yozishni boshlaydi; muvaffaqiyatsiz bo'lsa false. */
+    fun start(): Boolean
+    /** Yozishni to'xtatadi va fayl yo'lini qaytaradi. */
+    fun stop(): String?
 }
 
 /** Bitta ovoz bo'lagi: manbaning [sourceStart]..[sourceEnd] qismi, tayyor videoning [startAt] soniyasidan. */
@@ -106,6 +120,13 @@ enum class PickKind { VIDEO, IMAGE, AUDIO }
  */
 @Composable
 expect fun rememberMediaPicker(kind: PickKind, multiple: Boolean, onPicked: (List<String>) -> Unit): () -> Unit
+
+/**
+ * Mikrofon ruxsatini so'raydi.
+ * @return so'rovni boshlovchi funksiya; natija [onResult] ga keladi.
+ */
+@Composable
+expect fun rememberMicrophonePermission(onResult: (Boolean) -> Unit): () -> Unit
 
 /** Montaj pleyeri ko'rsatiladigan platforma view'i. */
 @Composable

@@ -32,7 +32,9 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VideoLibrary
@@ -77,6 +79,7 @@ import com.jas.montaj.montaj.VideoFilter
 import com.jas.montaj.platform.PickKind
 import com.jas.montaj.platform.PlayerSurface
 import com.jas.montaj.platform.rememberMediaPicker
+import com.jas.montaj.platform.rememberMicrophonePermission
 import com.jas.montaj.render.Graphics
 
 private val panelTitles = listOf("Kliplar", "Ovoz", "Matn", "Filtr")
@@ -341,6 +344,53 @@ private fun AudioPanel(editor: MontajEditor) {
         HintText("Musiqa qisqa bo'lsa takrorlanadi.")
     }
     OutlinedButton(onClick = pickMusic) { Text(if (music == null) "Musiqa tanlash" else "Boshqa musiqa") }
+
+    VoiceoverSection(editor)
+}
+
+@Composable
+private fun VoiceoverSection(editor: MontajEditor) {
+    val requestMicrophone = rememberMicrophonePermission { granted ->
+        if (granted) {
+            editor.startRecording()
+        } else {
+            editor.errorMessage = "Ovoz yozish uchun mikrofonga ruxsat bering"
+        }
+    }
+    SectionTitle("Ovoz yozish (voiceover)")
+    if (editor.isRecording) {
+        Button(
+            onClick = editor::stopRecording,
+            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+        ) {
+            Icon(Icons.Filled.Stop, contentDescription = null)
+            Text("To'xtatish")
+        }
+        HintText("Yozilmoqda… Video ijro etilyapti — ustiga gapiring.")
+    } else {
+        OutlinedButton(onClick = requestMicrophone) {
+            Icon(Icons.Filled.Mic, contentDescription = null)
+            Text("Joriy joydan yozish")
+        }
+        HintText("Yozuv videoning joriy soniyasidan boshlanadi. Quloqchin bilan yozsangiz, video ovozi aralashmaydi.")
+    }
+    editor.state.voiceovers.forEachIndexed { index, voice ->
+        Column(
+            Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.12f), RoundedCornerShape(10.dp)).padding(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Mic, contentDescription = null)
+                Text(
+                    "Yozuv ${index + 1}: ${Format.seconds(voice.startAt)} dan, ${Format.seconds(voice.duration)}",
+                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                )
+                IconButton(onClick = { editor.deleteVoiceover(voice.id) }) {
+                    Icon(Icons.Filled.Delete, contentDescription = "O'chirish", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+            VolumeRow(voice.volume) { volume -> editor.updateVoiceover(voice.id) { it.copy(volume = volume) } }
+        }
+    }
 }
 
 @Composable

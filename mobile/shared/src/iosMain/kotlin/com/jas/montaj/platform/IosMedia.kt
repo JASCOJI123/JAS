@@ -71,6 +71,8 @@ object IosMediaBackend : MediaBackend {
 
     override fun createPlayer(): PreviewPlayer = IosPreviewPlayer()
 
+    override fun createRecorder(): AudioRecorder = IosRecorder()
+
     override suspend fun export(job: ExportJob, onProgress: (Float) -> Unit): ExportedVideo = IosExporter.export(job, onProgress)
 
     override fun share(video: ExportedVideo) {

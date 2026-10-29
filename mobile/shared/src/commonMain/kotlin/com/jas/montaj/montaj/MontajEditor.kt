@@ -11,10 +11,12 @@ import com.jas.montaj.core.History
 import com.jas.montaj.core.ProjectInfo
 import com.jas.montaj.core.ProjectKind
 import com.jas.montaj.core.ProjectStore
+import com.jas.montaj.platform.AudioRecorder
 import com.jas.montaj.platform.AudioSegment
 import com.jas.montaj.platform.ExportJob
 import com.jas.montaj.platform.MediaBackend
 import com.jas.montaj.platform.PreviewClip
+import com.jas.montaj.platform.PreviewVoice
 import com.jas.montaj.platform.PreviewTimeline
 import com.jas.montaj.render.MontajRenderer
 import com.jas.montaj.render.TextRenderer
@@ -28,6 +30,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 
 /** Montaj rejimining holati va amallari (iOS va Android uchun bitta kod). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -264,6 +268,52 @@ class MontajEditor(
 
     // endregion
 
+    // region Ovoz yozish (voiceover)
+
+    var isRecording by mutableStateOf(false)
+        private set
+    private var recorder: AudioRecorder? = null
+    private var recordStartAt = 0.0
+    private var recordMark: TimeMark? = null
+
+    /** Joriy vaqtdan yozishni boshlaydi; video ham ijro etiladi — ustiga gapirish uchun. */
+    fun startRecording() {
+        if (isRecording || state.clips.isEmpty()) return
+        val created = media.createRecorder()
+        if (!created.start()) {
+            errorMessage = "Mikrofonni yoqib bo'lmadi"
+            return
+        }
+        recorder = created
+        recordStartAt = currentTime
+        recordMark = TimeSource.Monotonic.markNow()
+        isRecording = true
+        player.play()
+    }
+
+    fun stopRecording() {
+        val current = recorder ?: return
+        recorder = null
+        isRecording = false
+        player.pause()
+        val duration = recordMark?.elapsedNow()?.inWholeMilliseconds?.div(1000.0) ?: 0.0
+        val path = current.stop()
+        if (path == null || duration < 0.3) {
+            errorMessage = "Ovoz yozilmadi"
+            return
+        }
+        val voice = VoiceoverItem(path = path, startAt = recordStartAt, duration = duration)
+        update { it.copy(voiceovers = it.voiceovers + voice) }
+    }
+
+    fun updateVoiceover(id: String, change: (VoiceoverItem) -> VoiceoverItem) = update { current ->
+        current.copy(voiceovers = current.voiceovers.map { if (it.id == id) change(it) else it })
+    }
+
+    fun deleteVoiceover(id: String) = update { current -> current.copy(voiceovers = current.voiceovers.filterNot { it.id == id }) }
+
+    // endregion
+
     // region Matn va filtr
 
     fun addOverlay() {
@@ -317,6 +367,7 @@ class MontajEditor(
                     musicDuration = current.music?.durationSec ?: 0.0,
                     originalVolume = current.originalVolume,
                     musicVolume = current.musicVolume,
+                    voiceovers = current.voiceovers.map { PreviewVoice(it.path, it.startAt, it.duration, it.volume) },
                 ),
                 resumeAt = currentTime.coerceAtMost(current.totalDuration),
             )
@@ -335,6 +386,9 @@ class MontajEditor(
                 if (clip.hasAudio && snapshot.originalVolume > 0f) {
                     add(AudioSegment(clip.path, clip.trimStart, clip.trimEnd, start, clip.speed, snapshot.originalVolume))
                 }
+            }
+            snapshot.voiceovers.forEach { voice ->
+                add(AudioSegment(voice.path, 0.0, voice.duration, voice.startAt, volume = voice.volume))
             }
             snapshot.music?.let { music ->
                 if (snapshot.musicVolume > 0f) add(AudioSegment(music.path, 0.0, music.durationSec, 0.0, volume = snapshot.musicVolume, loop = true))

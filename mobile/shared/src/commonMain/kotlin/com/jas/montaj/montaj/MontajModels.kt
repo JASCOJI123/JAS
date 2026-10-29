@@ -61,6 +61,16 @@ data class TextOverlayItem(
     val hasBackground: Boolean = true,
 )
 
+/** Mikrofondan yozilgan ovoz: tayyor videoning [startAt] soniyasidan boshlanadi. */
+@Serializable
+data class VoiceoverItem(
+    val id: String = newId(),
+    val path: String,
+    val startAt: Double,
+    val duration: Double,
+    val volume: Float = 1f,
+)
+
 @Serializable
 data class MusicTrack(val path: String, val name: String, val durationSec: Double)
 
@@ -140,6 +150,7 @@ data class MontajState(
     val music: MusicTrack? = null,
     val originalVolume: Float = 1f,
     val musicVolume: Float = 0.6f,
+    val voiceovers: List<VoiceoverItem> = emptyList(),
 ) {
     val totalDuration: Double get() = clips.sumOf { it.outputDuration }
 

@@ -16,8 +16,17 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 
 /** Montaj ko'rish oynasi: ExoPlayer ketma-ket kliplarni ijro etadi, musiqa alohida pleyerda. */
-internal class AndroidPreviewPlayer(context: Context) : PreviewPlayer {
+internal class AndroidPreviewPlayer(private val context: Context) : PreviewPlayer {
     val player: ExoPlayer = ExoPlayer.Builder(context).build()
+    /** Har bir ovoz yozuvi uchun alohida pleyer; vaqti kelganda yoqiladi. */
+    private var voicePlayers: List<Pair<PreviewVoice, ExoPlayer>> = emptyList()
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val voiceSync = object : Runnable {
+        override fun run() {
+            syncVoices()
+            if (player.isPlaying) handler.postDelayed(this, 100)
+        }
+    }
     private val musicPlayer: ExoPlayer = ExoPlayer.Builder(context).build().apply { repeatMode = Player.REPEAT_MODE_ONE }
     private var timeline: PreviewTimeline? = null
     private var starts: List<Double> = emptyList()
@@ -27,7 +36,15 @@ internal class AndroidPreviewPlayer(context: Context) : PreviewPlayer {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) = applySpeed()
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) musicPlayer.pause()
+                if (playbackState == Player.STATE_ENDED) {
+                    musicPlayer.pause()
+                    voicePlayers.forEach { it.second.pause() }
+                }
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                handler.removeCallbacks(voiceSync)
+                if (isPlaying) handler.post(voiceSync) else voicePlayers.forEach { it.second.pause() }
             }
         })
     }
@@ -61,6 +78,14 @@ internal class AndroidPreviewPlayer(context: Context) : PreviewPlayer {
         } else {
             musicPlayer.clearMediaItems()
         }
+        voicePlayers.forEach { it.second.release() }
+        voicePlayers = timeline.voiceovers.map { voice ->
+            voice to ExoPlayer.Builder(context).build().apply {
+                setMediaItem(MediaItem.fromUri(Uri.fromFile(java.io.File(voice.path))))
+                volume = voice.volume
+                prepare()
+            }
+        }
         if (timeline.clips.isNotEmpty()) seek(resumeAt)
         if (wasPlaying) play()
     }
@@ -85,9 +110,30 @@ internal class AndroidPreviewPlayer(context: Context) : PreviewPlayer {
         player.seekTo(index, positionMs)
         applySpeed()
         syncMusic(play = player.isPlaying)
+        voicePlayers.forEach { it.second.pause() }
+        syncVoices()
+    }
+
+    /** Ovoz yozuvlarini joriy vaqtga moslaydi: o'z oralig'ida bo'lsa ijro etadi. */
+    private fun syncVoices() {
+        val time = currentTime()
+        val playing = player.isPlaying
+        voicePlayers.forEach { (voice, voicePlayer) ->
+            val inside = time >= voice.startAt && time < voice.startAt + voice.duration
+            if (playing && inside) {
+                if (!voicePlayer.isPlaying) {
+                    voicePlayer.seekTo(((time - voice.startAt) * 1000).toLong())
+                    voicePlayer.play()
+                }
+            } else if (voicePlayer.isPlaying) {
+                voicePlayer.pause()
+            }
+        }
     }
 
     override fun release() {
+        handler.removeCallbacks(voiceSync)
+        voicePlayers.forEach { it.second.release() }
         player.release()
         musicPlayer.release()
     }

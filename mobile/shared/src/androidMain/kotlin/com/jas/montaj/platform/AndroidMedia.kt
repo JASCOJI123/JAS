@@ -68,6 +68,8 @@ object AndroidMediaBackend : MediaBackend {
 
     override fun createPlayer(): PreviewPlayer = AndroidPreviewPlayer(context)
 
+    override fun createRecorder(): AudioRecorder = AndroidRecorder()
+
     override suspend fun export(job: ExportJob, onProgress: (Float) -> Unit): ExportedVideo =
         AndroidExporter.export(context, job, onProgress)
 
