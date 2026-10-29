@@ -20,6 +20,9 @@ interface MediaBackend {
     /** Montaj ko'rish oynasi uchun pleyer. */
     fun createPlayer(): PreviewPlayer
 
+    /** Videoning [start]..[end] qismidagi ovozni .m4a faylga ajratadi (subtitr uchun). */
+    suspend fun extractAudio(videoPath: String, start: Double, end: Double): String
+
     /** Mikrofondan ovoz yozuvchi (voiceover). */
     fun createRecorder(): AudioRecorder
 

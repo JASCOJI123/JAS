@@ -6,7 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontFamily
+import com.jas.montaj.core.AppSettings
 import com.jas.montaj.core.ExportState
+import com.jas.montaj.core.SettingsStore
+import com.jas.montaj.core.Transcriber
 import com.jas.montaj.core.History
 import com.jas.montaj.core.ProjectInfo
 import com.jas.montaj.core.ProjectKind
@@ -39,6 +42,7 @@ class MontajEditor(
     private val media: MediaBackend,
     private val fonts: FontFamily.Resolver,
     private val store: ProjectStore,
+    private val settingsStore: SettingsStore,
 ) {
     var state by mutableStateOf(MontajState())
         private set
@@ -311,6 +315,63 @@ class MontajEditor(
     }
 
     fun deleteVoiceover(id: String) = update { current -> current.copy(voiceovers = current.voiceovers.filterNot { it.id == id }) }
+
+    // endregion
+
+    // region Avto-subtitr
+
+    var settings by mutableStateOf(settingsStore.load())
+        private set
+    /** null — ish ketmayapti; aks holda 0..1. */
+    var subtitleProgress by mutableStateOf<Float?>(null)
+        private set
+
+    fun saveSettings(newSettings: AppSettings) {
+        settings = newSettings
+        settingsStore.save(newSettings)
+    }
+
+    /** Har bir klip ovozini matnga aylantirib, vaqtlari bilan subtitr qo'shadi. */
+    fun generateSubtitles() {
+        val key = settings.openAiKey
+        if (key.isBlank()) {
+            errorMessage = "Avval OpenAI API kalitini kiriting"
+            return
+        }
+        val snapshot = state
+        val clips = snapshot.clips.withIndex().filter { it.value.hasAudio }
+        if (clips.isEmpty()) {
+            errorMessage = "Kliplarda ovoz yo'q"
+            return
+        }
+        player.pause()
+        scope.launch {
+            subtitleProgress = 0f
+            try {
+                val starts = snapshot.clipStarts
+                val created = mutableListOf<TextOverlayItem>()
+                clips.forEachIndexed { done, (index, clip) ->
+                    val audio = media.extractAudio(clip.path, clip.trimStart, clip.trimEnd)
+                    val segments = Transcriber.transcribe(audio, key, settings.subtitleLanguage)
+                    val clipEnd = starts[index] + clip.outputDuration
+                    segments.forEach { segment ->
+                        val start = starts[index] + segment.start / clip.speed
+                        val end = minOf(starts[index] + segment.end / clip.speed, clipEnd)
+                        if (end - start > 0.1) {
+                            created += TextOverlayItem(text = segment.text, start = start, end = end, fontSize = 58f)
+                        }
+                    }
+                    subtitleProgress = (done + 1f) / clips.size
+                }
+                if (created.isEmpty()) error("Nutq topilmadi")
+                update { it.copy(overlays = it.overlays + created) }
+            } catch (error: Exception) {
+                errorMessage = "Subtitr yaratib bo'lmadi: ${error.message}"
+            } finally {
+                subtitleProgress = null
+            }
+        }
+    }
 
     // endregion
 

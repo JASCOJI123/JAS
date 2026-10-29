@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -67,7 +68,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.jas.montaj.core.Transcriber
 import com.jas.montaj.core.ExportState
 import com.jas.montaj.core.Format
 import com.jas.montaj.montaj.Clip
@@ -138,6 +141,7 @@ fun MontajScreen(editor: MontajEditor, modifier: Modifier = Modifier) {
             }
         }
         if (editor.isImporting) BusyOverlay("Yuklanmoqda…")
+        editor.subtitleProgress?.let { BusyOverlay("Subtitr yaratilmoqda… ${(it * 100).toInt()}%") }
         ExportDialog(editor.exportState, onShare = editor::share, onDismiss = editor::dismissExport)
         ErrorDialog(editor.errorMessage) { editor.errorMessage = null }
         if (showProjects) {
@@ -419,7 +423,12 @@ private fun VolumeRow(volume: Float, onChange: (Float) -> Unit) {
 @Composable
 private fun TextPanel(editor: MontajEditor) {
     val state = editor.state
-    Button(onClick = editor::addOverlay) { Text("Matn / subtitr qo'shish") }
+    var showAuto by remember { mutableStateOf(false) }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Button(onClick = editor::addOverlay) { Text("Matn qo'shish") }
+        OutlinedButton(onClick = { showAuto = true }) { Text("Avto-subtitr") }
+    }
+    if (showAuto) AutoSubtitleDialog(editor) { showAuto = false }
     if (state.overlays.isEmpty()) {
         HintText("Matn joriy vaqtdan boshlab 3 soniya ko'rinadi. Vaqtini keyin o'zgartirish mumkin.")
     }
@@ -472,6 +481,44 @@ private fun TextPanel(editor: MontajEditor) {
             }
         }
     }
+}
+
+@Composable
+private fun AutoSubtitleDialog(editor: MontajEditor, onDismiss: () -> Unit) {
+    var key by remember { mutableStateOf(editor.settings.openAiKey) }
+    var language by remember { mutableStateOf(editor.settings.subtitleLanguage) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Avto-subtitr") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                HintText("Kliplardagi nutq OpenAI Whisper orqali matnga aylantiriladi va vaqtlari bilan subtitr qo'shiladi.")
+                OutlinedTextField(
+                    value = key,
+                    onValueChange = { key = it },
+                    label = { Text("OpenAI API kaliti") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                HintText("Kalit faqat shu telefonda saqlanadi. platform.openai.com → API keys.")
+                Text("Til", style = MaterialTheme.typography.bodyMedium)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Transcriber.languages.forEach { (code, title) ->
+                        FilterChip(selected = language == code, onClick = { language = code }, label = { Text(title) })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                editor.saveSettings(editor.settings.copy(openAiKey = key.trim(), subtitleLanguage = language))
+                onDismiss()
+                editor.generateSubtitles()
+            }) { Text("Boshlash") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Bekor qilish") } },
+    )
 }
 
 // endregion

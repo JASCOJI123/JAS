@@ -29,3 +29,38 @@ private object AndroidStorage : Storage {
 
     override fun nowMillis(): Long = System.currentTimeMillis()
 }
+
+actual suspend fun httpPostMultipart(
+    url: String,
+    headers: Map<String, String>,
+    fields: Map<String, String>,
+    fileField: String,
+    filePath: String,
+    fileName: String,
+    mimeType: String,
+): String = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val boundary = "----Montaj${System.currentTimeMillis()}"
+    val connection = (java.net.URL(url).openConnection() as java.net.HttpURLConnection).apply {
+        requestMethod = "POST"
+        doOutput = true
+        connectTimeout = 30_000
+        readTimeout = 300_000
+        setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+        headers.forEach { (key, value) -> setRequestProperty(key, value) }
+        setChunkedStreamingMode(64 * 1024)
+    }
+    try {
+        connection.outputStream.buffered().use { out ->
+            fields.forEach { (key, value) ->
+                out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$key\"\r\n\r\n$value\r\n".toByteArray())
+            }
+            out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$fileField\"; filename=\"$fileName\"\r\nContent-Type: $mimeType\r\n\r\n".toByteArray())
+            File(filePath).inputStream().use { it.copyTo(out) }
+            out.write("\r\n--$boundary--\r\n".toByteArray())
+        }
+        val stream = if (connection.responseCode in 200..299) connection.inputStream else connection.errorStream
+        stream?.bufferedReader()?.use { it.readText() } ?: ""
+    } finally {
+        connection.disconnect()
+    }
+}

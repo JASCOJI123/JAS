@@ -33,3 +33,41 @@ private object IosStorage : Storage {
 
     override fun nowMillis(): Long = (NSDate().timeIntervalSince1970 * 1000).toLong()
 }
+
+actual suspend fun httpPostMultipart(
+    url: String,
+    headers: Map<String, String>,
+    fields: Map<String, String>,
+    fileField: String,
+    filePath: String,
+    fileName: String,
+    mimeType: String,
+): String = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+    val boundary = "----Montaj${(NSDate().timeIntervalSince1970 * 1000).toLong()}"
+    val body = NSMutableData()
+    fun append(text: String) {
+        NSString.create(string = text).dataUsingEncoding(NSUTF8StringEncoding)?.let { body.appendData(it) }
+    }
+    fields.forEach { (key, value) -> append("--$boundary\r\nContent-Disposition: form-data; name=\"$key\"\r\n\r\n$value\r\n") }
+    append("--$boundary\r\nContent-Disposition: form-data; name=\"$fileField\"; filename=\"$fileName\"\r\nContent-Type: $mimeType\r\n\r\n")
+    NSData.dataWithContentsOfFile(filePath)?.let { body.appendData(it) }
+    append("\r\n--$boundary--\r\n")
+
+    val request = NSMutableURLRequest.requestWithURL(NSURL.URLWithString(url)!!)
+    request.setHTTPMethod("POST")
+    request.setTimeoutInterval(300.0)
+    request.setValue("multipart/form-data; boundary=$boundary", forHTTPHeaderField = "Content-Type")
+    headers.forEach { (key, value) -> request.setValue(value, forHTTPHeaderField = key) }
+    request.setHTTPBody(body)
+
+    val task = NSURLSession.sharedSession.dataTaskWithRequest(request) { data, _, error ->
+        if (error != null && data == null) {
+            continuation.resumeWith(Result.failure(IllegalStateException(error.localizedDescription)))
+        } else {
+            val text = data?.let { NSString.create(data = it, encoding = NSUTF8StringEncoding)?.toString() } ?: ""
+            continuation.resumeWith(Result.success(text))
+        }
+    }
+    continuation.invokeOnCancellation { task.cancel() }
+    task.resume()
+}

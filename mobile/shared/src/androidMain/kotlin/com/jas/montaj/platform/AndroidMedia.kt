@@ -70,6 +70,9 @@ object AndroidMediaBackend : MediaBackend {
 
     override fun createRecorder(): AudioRecorder = AndroidRecorder()
 
+    override suspend fun extractAudio(videoPath: String, start: Double, end: Double): String =
+        AndroidExporter.extractAudio(context, videoPath, start, end)
+
     override suspend fun export(job: ExportJob, onProgress: (Float) -> Unit): ExportedVideo =
         AndroidExporter.export(context, job, onProgress)
 

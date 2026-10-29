@@ -44,7 +44,7 @@ internal object AndroidExporter {
         val frames = AndroidMediaBackend.openFrameSource()
         try {
             val composition = composition(context, job, frames)
-            val file = run(context, composition, onProgress)
+            val file = run(context, composition, onProgress = onProgress)
             val uri = withContext(Dispatchers.IO) {
                 try {
                     AndroidMediaBackend.saveToGallery(file)
@@ -175,9 +175,26 @@ internal object AndroidExporter {
         return file
     }
 
-    private suspend fun run(context: Context, composition: Composition, onProgress: (Float) -> Unit): File =
+    /** Videoning bir qismidagi ovozni .m4a ga ajratadi. */
+    suspend fun extractAudio(context: Context, videoPath: String, start: Double, end: Double): String {
+        val item = EditedMediaItem.Builder(
+            MediaItem.Builder()
+                .setUri(Uri.fromFile(File(videoPath)))
+                .setClippingConfiguration(
+                    MediaItem.ClippingConfiguration.Builder()
+                        .setStartPositionMs((start * 1000).toLong())
+                        .setEndPositionMs((end * 1000).toLong())
+                        .build(),
+                )
+                .build(),
+        ).setRemoveVideo(true).build()
+        val file = run(context, Composition.Builder(listOf(EditedMediaItemSequence(listOf(item)))).build(), "m4a") {}
+        return file.absolutePath
+    }
+
+    private suspend fun run(context: Context, composition: Composition, extension: String = "mp4", onProgress: (Float) -> Unit): File =
         withContext(Dispatchers.Main) {
-            val output = File(context.cacheDir, "export_${System.currentTimeMillis()}.mp4")
+            val output = File(context.cacheDir, "export_${System.currentTimeMillis()}.$extension")
             val done = CompletableDeferred<Unit>()
             val transformer = Transformer.Builder(context)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)

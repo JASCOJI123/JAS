@@ -12,3 +12,17 @@ interface Storage {
 }
 
 expect fun storage(): Storage
+
+/**
+ * multipart/form-data POST (fayl yuklash bilan). Javob matnini qaytaradi;
+ * HTTP xatosida ham javob tanasini qaytaradi (xabarni ko'rsatish uchun).
+ */
+expect suspend fun httpPostMultipart(
+    url: String,
+    headers: Map<String, String>,
+    fields: Map<String, String>,
+    fileField: String,
+    filePath: String,
+    fileName: String,
+    mimeType: String,
+): String

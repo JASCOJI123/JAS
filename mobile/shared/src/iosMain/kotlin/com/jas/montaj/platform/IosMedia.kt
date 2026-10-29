@@ -73,6 +73,24 @@ object IosMediaBackend : MediaBackend {
 
     override fun createRecorder(): AudioRecorder = IosRecorder()
 
+    override suspend fun extractAudio(videoPath: String, start: Double, end: Double): String {
+        val output = "$exportsDir/audio_${com.jas.montaj.core.newId()}.m4a"
+        val session = AVAssetExportSession(asset = asset(videoPath), presetName = AVAssetExportPresetAppleM4A)
+        session.outputURL = NSURL.fileURLWithPath(output)
+        session.outputFileType = AVFileTypeAppleM4A
+        session.timeRange = CMTimeRangeMake(CMTimeMakeWithSeconds(start, 600), CMTimeMakeWithSeconds(end - start, 600))
+        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            session.exportAsynchronouslyWithCompletionHandler {
+                if (session.status == AVAssetExportSessionStatusCompleted) {
+                    continuation.resumeWith(Result.success(Unit))
+                } else {
+                    continuation.resumeWith(Result.failure(IllegalStateException(session.error?.localizedDescription ?: "Ovozni ajratib bo'lmadi")))
+                }
+            }
+        }
+        return output
+    }
+
     override suspend fun export(job: ExportJob, onProgress: (Float) -> Unit): ExportedVideo = IosExporter.export(job, onProgress)
 
     override fun share(video: ExportedVideo) {
