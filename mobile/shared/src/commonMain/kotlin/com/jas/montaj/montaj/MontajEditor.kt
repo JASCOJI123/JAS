@@ -20,6 +20,7 @@ import com.jas.montaj.render.MontajRenderer
 import com.jas.montaj.render.TextRenderer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Montaj rejimining holati va amallari (iOS va Android uchun bitta kod). */
+@OptIn(ExperimentalCoroutinesApi::class)
 class MontajEditor(
     private val media: MediaBackend,
     private val fonts: FontFamily.Resolver,
@@ -56,6 +58,14 @@ class MontajEditor(
     private var rebuildJob: Job? = null
     private var saveJob: Job? = null
 
+    /** Pauzada o'tish effekti ustida turganda ko'rsatiladigan aniq kadr (pleyer o'tishni ko'rsatmaydi). */
+    var transitionPreview by mutableStateOf<ImageBitmap?>(null)
+        private set
+    private val previewRenderer = MontajRenderer(TextRenderer(fonts))
+    private val previewFrames = media.openFrameSource()
+    private val renderDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private var transitionJob: Job? = null
+
     val history = History<MontajState>()
     var projectInfo by mutableStateOf(store.newInfo(ProjectKind.MONTAJ))
         private set
@@ -70,7 +80,10 @@ class MontajEditor(
             while (isActive) {
                 val playing = player.isPlaying
                 if (playing || isPlaying) currentTime = player.currentTime().coerceIn(0.0, state.totalDuration)
+                val stopped = isPlaying && !playing
                 isPlaying = playing
+                if (playing) transitionPreview = null
+                if (stopped) refreshTransitionPreview()
                 delay(50)
             }
         }
@@ -91,6 +104,21 @@ class MontajEditor(
         if (selectedOverlayId != null && newState.overlays.none { it.id == selectedOverlayId }) selectedOverlayId = null
         scheduleRebuild()
         if (save) scheduleSave()
+        refreshTransitionPreview()
+    }
+
+    private fun refreshTransitionPreview() {
+        transitionJob?.cancel()
+        val snapshot = state
+        val time = currentTime
+        if (isPlaying || snapshot.transitionAt(time) == null) {
+            transitionPreview = null
+            return
+        }
+        transitionJob = scope.launch {
+            delay(120)
+            transitionPreview = withContext(renderDispatcher) { previewRenderer.render(snapshot, time, previewFrames, maxSide = 960) }
+        }
     }
 
     // region Undo / Redo va loyihalar
@@ -273,6 +301,7 @@ class MontajEditor(
         val target = time.coerceIn(0.0, state.totalDuration)
         currentTime = target
         player.seek(target)
+        refreshTransitionPreview()
     }
 
     private fun scheduleRebuild() {
@@ -341,6 +370,7 @@ class MontajEditor(
 
     fun dispose() {
         flushSave()
+        previewFrames.close()
         player.release()
         scope.cancel()
     }

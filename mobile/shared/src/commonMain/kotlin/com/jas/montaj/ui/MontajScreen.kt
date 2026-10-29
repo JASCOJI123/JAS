@@ -72,6 +72,7 @@ import com.jas.montaj.montaj.Clip
 import com.jas.montaj.montaj.MontajEditor
 import com.jas.montaj.montaj.MontajState
 import com.jas.montaj.montaj.TextPosition
+import com.jas.montaj.montaj.TransitionKind
 import com.jas.montaj.montaj.VideoFilter
 import com.jas.montaj.platform.PickKind
 import com.jas.montaj.platform.PlayerSurface
@@ -170,6 +171,12 @@ private fun Preview(editor: MontajEditor) {
     Box(Modifier.fillMaxWidth().height(330.dp).background(Color.Black), contentAlignment = Alignment.Center) {
         Box(Modifier.aspectRatio(MontajState.WIDTH / MontajState.HEIGHT.toFloat())) {
             PlayerSurface(editor.player, Modifier.fillMaxSize())
+            val transitionFrame = editor.transitionPreview
+            if (transitionFrame != null) {
+                // Pauzada o'tish effekti ustida: aniq kadr (matnlar ham ichida).
+                Image(transitionFrame, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                return@Box
+            }
             // Matnlar eksportdagi bilan bir xil funksiya orqali, kichraytirib chiziladi.
             val time = editor.currentTime
             val active = editor.state.overlays.filter { time >= it.start && time < it.end }
@@ -240,6 +247,25 @@ private fun ClipsPanel(editor: MontajEditor) {
                 onClick = { editor.updateClip(clip.id) { it.copy(speed = speed) } },
                 label = { Text(Format.speed(speed)) },
             )
+        }
+    }
+
+    if (index < clips.lastIndex) {
+        SectionTitle("Keyingi klipga o'tish")
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TransitionKind.entries.forEach { kind ->
+                FilterChip(
+                    selected = clip.transition == kind,
+                    onClick = { editor.updateClip(clip.id) { it.copy(transition = kind) } },
+                    label = { Text(kind.title) },
+                )
+            }
+        }
+        if (clip.transition != TransitionKind.NONE) {
+            LabeledSlider("O'tish davomiyligi", clip.transitionDuration.toFloat(), 0.2f..1.5f, Format.seconds(clip.transitionDuration), { v ->
+                editor.updateClip(clip.id) { it.copy(transitionDuration = v.toDouble()) }
+            })
+            HintText("O'tishni ko'rish uchun pauzada kliplar chegarasiga suring. Tayyor videoda to'liq chiqadi.")
         }
     }
 

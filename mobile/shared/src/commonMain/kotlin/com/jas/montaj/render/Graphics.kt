@@ -34,6 +34,10 @@ object Graphics {
         )
     }
 
+    fun drawImageFull(canvas: Canvas, image: ImageBitmap, paint: Paint = smoothPaint()) {
+        canvas.drawImage(image, Offset.Zero, paint)
+    }
+
     fun smoothPaint() = Paint().apply {
         isAntiAlias = true
         filterQuality = FilterQuality.Low

@@ -16,6 +16,9 @@ data class Clip(
     val trimStart: Double = 0.0,
     val trimEnd: Double = durationSec,
     val speed: Double = 1.0,
+    /** Shu klipdan keyingisiga o'tish effekti. */
+    val transition: TransitionKind = TransitionKind.NONE,
+    val transitionDuration: Double = 0.6,
 ) {
     val trimmedDuration: Double get() = (trimEnd - trimStart).coerceAtLeast(0.0)
     val outputDuration: Double get() = trimmedDuration / speed
@@ -24,6 +27,18 @@ data class Clip(
         const val MIN_LENGTH = 0.3
         val SPEEDS = listOf(0.25, 0.5, 1.0, 1.5, 2.0, 3.0)
     }
+}
+
+@Serializable
+enum class TransitionKind(val title: String) {
+    NONE("Yo'q"),
+    FADE("Crossfade"),
+    BLACK("Qora orqali"),
+    SLIDE("Surish"),
+    PUSH_UP("Yuqoriga"),
+    ZOOM("Zoom"),
+    WIPE("Wipe"),
+    GLITCH("Glitch"),
 }
 
 @Serializable
@@ -134,6 +149,24 @@ data class MontajState(
             var cursor = 0.0
             return clips.map { clip -> cursor.also { cursor += clip.outputDuration } }
         }
+
+    /**
+     * [time] o'tish oralig'iga tushsa: (chiqayotgan klip indeksi, 0..1 progress).
+     * O'tish klip chegarasining ikki tomonida teng taqsimlanadi, umumiy davomiylik o'zgarmaydi.
+     */
+    fun transitionAt(time: Double): Pair<Int, Double>? {
+        val starts = clipStarts
+        for (index in 0 until clips.size - 1) {
+            val clip = clips[index]
+            if (clip.transition == TransitionKind.NONE) continue
+            val half = minOf(clip.transitionDuration / 2, clip.outputDuration / 2, clips[index + 1].outputDuration / 2)
+            val boundary = starts[index + 1]
+            if (half > 0 && time >= boundary - half && time < boundary + half) {
+                return index to ((time - (boundary - half)) / (half * 2))
+            }
+        }
+        return null
+    }
 
     companion object {
         /** Vertikal 9:16 (Reels / TikTok / Shorts). */

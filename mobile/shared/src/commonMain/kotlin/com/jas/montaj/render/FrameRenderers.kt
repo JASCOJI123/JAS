@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
 import com.jas.montaj.montaj.MontajState
+import com.jas.montaj.motion.Easing
 import com.jas.montaj.motion.LayerContent
 import com.jas.montaj.motion.MotionLayer
 import com.jas.montaj.motion.MotionProject
@@ -102,25 +103,48 @@ class MotionRenderer(private val text: TextRenderer, private val media: MediaBac
     }
 }
 
-/** Montaj eksport kadri: joriy klip (to'liq sig'dirib, xira fon bilan), filtr va matnlar. */
+/**
+ * Montaj kadri: joriy klip (to'liq sig'dirib, xira fon bilan), kliplar orasidagi o'tish effekti,
+ * filtr va matnlar. Eksport ham, pauzadagi ko'rish oynasi ham shu klassdan foydalanadi.
+ */
 class MontajRenderer(private val text: TextRenderer) {
-    fun render(state: MontajState, time: Double, frames: FrameSource): ImageBitmap {
-        val width = MontajState.WIDTH.toFloat()
-        val height = MontajState.HEIGHT.toFloat()
+    private val width = MontajState.WIDTH.toFloat()
+    private val height = MontajState.HEIGHT.toFloat()
+
+    fun render(state: MontajState, time: Double, frames: FrameSource, maxSide: Int = 1920): ImageBitmap {
         val output = Graphics.blank(MontajState.WIDTH, MontajState.HEIGHT)
         val canvas = Canvas(output)
         canvas.drawRect(0f, 0f, width, height, Paint().apply { color = Color.Black })
 
-        val starts = state.clipStarts
-        val index = starts.indexOfLast { it <= time }.coerceAtLeast(0)
-        val clip = state.clips.getOrNull(index)
-        if (clip != null) {
-            val sourceTime = (clip.trimStart + (time - starts[index]) * clip.speed).coerceAtMost(clip.trimEnd)
-            frames.frame(clip.path, sourceTime, 1920, exact = true)?.let { frame ->
-                Graphics.drawFitWithBlurredBackground(canvas, frame, width, height, state.filter.matrix())
-            }
+        val transition = state.transitionAt(time)
+        if (transition != null) {
+            val (index, progress) = transition
+            val from = clipFrame(state, index, time, frames, maxSide)
+            val to = clipFrame(state, index + 1, time, frames, maxSide)
+            Transitions.draw(canvas, state.clips[index].transition, from, to, Easing.EASE_IN_OUT.apply(progress).toFloat(), width, height)
+        } else {
+            val starts = state.clipStarts
+            val index = starts.indexOfLast { it <= time }.coerceAtLeast(0)
+            if (index < state.clips.size) Graphics.drawImageFull(canvas, clipFrame(state, index, time, frames, maxSide))
         }
         state.overlays.filter { time >= it.start && time < it.end }.forEach { text.drawOverlay(canvas, it, width, height) }
         return output
+    }
+
+    /**
+     * Klipning [time] dagi kadri butun kadr o'lchamida (filtr bilan).
+     * O'tish paytida klip chegarasidan tashqariga chiqsa, birinchi/oxirgi kadri ushlab turiladi.
+     */
+    private fun clipFrame(state: MontajState, index: Int, time: Double, frames: FrameSource, maxSide: Int): ImageBitmap {
+        val layer = Graphics.blank(MontajState.WIDTH, MontajState.HEIGHT)
+        val clip = state.clips[index]
+        val start = state.clipStarts[index]
+        val sourceTime = (clip.trimStart + (time - start) * clip.speed).coerceIn(clip.trimStart, maxOf(clip.trimStart, clip.trimEnd - 0.04))
+        frames.frame(clip.path, sourceTime, maxSide, exact = true)?.let { frame ->
+            val canvas = Canvas(layer)
+            canvas.drawRect(0f, 0f, width, height, Paint().apply { color = Color.Black })
+            Graphics.drawFitWithBlurredBackground(canvas, frame, width, height, state.filter.matrix())
+        }
+        return layer
     }
 }
