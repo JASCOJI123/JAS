@@ -58,9 +58,12 @@ import com.jas.montaj.core.Format
 import com.jas.montaj.motion.MotionEditor
 import com.jas.montaj.platform.PickKind
 import com.jas.montaj.platform.rememberMediaPicker
+import com.jas.montaj.motion.MotionTemplate
 import com.jas.montaj.motion.ShapeKind
 import com.jas.montaj.motion.Vec2
+import com.jas.montaj.motion.toParentSpace
 import com.jas.montaj.motion.valueAt
+import com.jas.montaj.motion.worldTransform
 
 @Composable
 fun MotionScreen(editor: MotionEditor, modifier: Modifier = Modifier) {
@@ -99,6 +102,10 @@ fun MotionScreen(editor: MotionEditor, modifier: Modifier = Modifier) {
                                     pickImage()
                                 })
                                 DropdownMenuItem(text = { Text("Solid (rangli fon)") }, onClick = { showAddMenu = false; editor.addSolid() })
+                                HorizontalDivider()
+                                MotionTemplate.entries.forEach { template ->
+                                    DropdownMenuItem(text = { Text("Shablon: ${template.title}") }, onClick = { showAddMenu = false; editor.addTemplate(template) })
+                                }
                                 HorizontalDivider()
                                 ShapeKind.entries.forEach { kind ->
                                     DropdownMenuItem(text = { Text("Shakl: ${kind.title}") }, onClick = { showAddMenu = false; editor.addShape(kind) })
@@ -173,10 +180,12 @@ private fun MotionPreview(editor: MotionEditor) {
                         val layer = vm.selectedLayer ?: return@detectTransformGestures
                         val time = vm.currentTime
                         val pixelsPerPoint = vm.project.width / size.width.toDouble()
+                        // Ota-qatlam bo'lsa, siljish uning koordinatalariga aylantiriladi.
+                        val delta = vm.project.toParentSpace(layer, Vec2(pan.x * pixelsPerPoint, pan.y * pixelsPerPoint), time)
                         vm.updateLayer(layer.id) { current ->
                             val position = current.position.valueAt(time)
                             current.copy(
-                                position = current.position.set(Vec2(position.x + pan.x * pixelsPerPoint, position.y + pan.y * pixelsPerPoint), time),
+                                position = current.position.set(Vec2(position.x + delta.x, position.y + delta.y), time),
                                 scale = current.scale.set((current.scale.valueAt(time) * zoom).coerceAtLeast(0.02), time),
                                 rotation = current.rotation.set(current.rotation.valueAt(time) + rotation, time),
                             )
@@ -191,9 +200,10 @@ private fun MotionPreview(editor: MotionEditor) {
             if (layer != null && layer.isActive(editor.currentTime)) {
                 val time = editor.currentTime
                 val (contentWidth, contentHeight) = editor.contentSize(layer)
-                val position = layer.position.valueAt(time)
-                val scale = layer.scale.valueAt(time).toFloat()
-                val rotation = layer.rotation.valueAt(time).toFloat()
+                val transform = project.worldTransform(layer, time)
+                val position = transform.position
+                val scale = transform.scale.toFloat()
+                val rotation = transform.rotation.toFloat()
                 val accent = MaterialTheme.colorScheme.primary
                 Canvas(Modifier.fillMaxSize()) {
                     val k = size.width / project.width

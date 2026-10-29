@@ -34,6 +34,46 @@ enum class Easing(val title: String) {
     }
 }
 
+/** Graph editor: keyframe'lar orasidagi harakat egri chizig'i (CSS cubic-bezier kabi). */
+@Serializable
+data class Bezier(val x1: Double, val y1: Double, val x2: Double, val y2: Double) {
+    /** x (vaqt ulushi) bo'yicha y (qiymat ulushi) — Nyuton usuli bilan. */
+    fun apply(progress: Double): Double {
+        if (progress <= 0) return 0.0
+        if (progress >= 1) return 1.0
+        var t = progress
+        repeat(8) {
+            val x = curve(t, x1, x2) - progress
+            val slope = derivative(t, x1, x2)
+            if (kotlin.math.abs(x) < 1e-5 || kotlin.math.abs(slope) < 1e-6) return@repeat
+            t = (t - x / slope).coerceIn(0.0, 1.0)
+        }
+        return curve(t, y1, y2)
+    }
+
+    private fun curve(t: Double, a: Double, b: Double): Double {
+        val u = 1 - t
+        return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t
+    }
+
+    private fun derivative(t: Double, a: Double, b: Double): Double {
+        val u = 1 - t
+        return 3 * u * u * a + 6 * u * t * (b - a) + 3 * t * t * (1 - b)
+    }
+
+    companion object {
+        val presets = listOf(
+            "Chiziqli" to Bezier(0.0, 0.0, 1.0, 1.0),
+            "Ease" to Bezier(0.25, 0.1, 0.25, 1.0),
+            "Ease In" to Bezier(0.42, 0.0, 1.0, 1.0),
+            "Ease Out" to Bezier(0.0, 0.0, 0.58, 1.0),
+            "Easy Ease" to Bezier(0.33, 0.0, 0.67, 1.0),
+            "Overshoot" to Bezier(0.34, 1.56, 0.64, 1.0),
+            "Anticipate" to Bezier(0.36, -0.4, 0.64, 1.0),
+        )
+    }
+}
+
 @Serializable
 data class Keyframe<T>(
     val id: String = newId(),
@@ -42,7 +82,11 @@ data class Keyframe<T>(
     val value: T,
     /** Shu keyframe'dan keyingisigacha bo'lgan harakat egri chizig'i. */
     val easing: Easing = Easing.EASE_IN_OUT,
-)
+    /** Graph editor'da chizilgan egri chiziq; bo'lsa [easing] o'rniga ishlatiladi. */
+    val bezier: Bezier? = null,
+) {
+    fun ease(progress: Double): Double = bezier?.apply(progress) ?: easing.apply(progress)
+}
 
 /**
  * After Effects'dagi kabi animatsiya qilinadigan xususiyat:
@@ -67,10 +111,10 @@ data class Animatable<T>(
         val index = keyframes.indexOfLast { it.time <= time }
         val from = keyframes[index]
         val to = keyframes.getOrNull(index + 1) ?: return last.value
-        if (from.easing == Easing.HOLD) return from.value
+        if (from.easing == Easing.HOLD && from.bezier == null) return from.value
         val span = to.time - from.time
         val progress = if (span > 0) (time - from.time) / span else 1.0
-        return lerp(from.value, to.value, from.easing.apply(progress))
+        return lerp(from.value, to.value, from.ease(progress))
     }
 
     /** Animatsiya bo'lsa shu vaqtda keyframe yaratadi/yangilaydi, aks holda doimiy qiymatni o'zgartiradi. */
@@ -97,7 +141,18 @@ data class Animatable<T>(
 
     fun setEasing(easing: Easing, time: Double): Animatable<T> {
         val index = keyframeIndex(time) ?: return this
-        return copy(keyframes = keyframes.toMutableList().also { it[index] = it[index].copy(easing = easing) })
+        return copy(keyframes = keyframes.toMutableList().also { it[index] = it[index].copy(easing = easing, bezier = null) })
+    }
+
+    fun setBezier(bezier: Bezier?, time: Double): Animatable<T> {
+        val index = keyframeIndex(time) ?: return this
+        return copy(keyframes = keyframes.toMutableList().also { it[index] = it[index].copy(bezier = bezier) })
+    }
+
+    /** Shu vaqtda (bor bo'lsa almashtirib) keyframe qo'shadi — presetlar uchun. */
+    fun withKeyframe(time: Double, value: T, easing: Easing = Easing.EASE_OUT): Animatable<T> {
+        val remaining = keyframes.filter { kotlin.math.abs(it.time - time) > TOLERANCE }
+        return copy(keyframes = (remaining + Keyframe(time = time, value = value, easing = easing)).sortedBy { it.time })
     }
 
     companion object {

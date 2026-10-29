@@ -270,6 +270,17 @@ class MotionEditor(
         }
     }
 
+    fun applyPreset(id: String, preset: AnimationPreset) = updateLayer(id) { preset.apply(it, currentTime, project) }
+
+    fun addTemplate(template: MotionTemplate) {
+        val start = currentTime.coerceAtMost((project.duration - 1).coerceAtLeast(0.0))
+        val layers = template.create(project, start)
+        updateProject { it.copy(layers = it.layers + layers) }
+        selectedLayerId = layers.lastOrNull()?.id
+    }
+
+    fun setParent(id: String, parentId: String?) = updateProject { it.setParent(id, parentId, currentTime) }
+
     fun duplicateLayer(id: String) {
         val index = project.layers.indexOfFirst { it.id == id }
         if (index < 0) return
@@ -280,7 +291,12 @@ class MotionEditor(
     }
 
     fun deleteLayer(id: String) {
-        updateProject { current -> current.copy(layers = current.layers.filterNot { it.id == id }) }
+        // Bolalari dunyodagi joyida qolishi uchun avval bog'lanishni uzamiz.
+        updateProject { current ->
+            val children = current.layers.filter { it.parentId == id }.map { it.id }
+            children.fold(current) { acc, child -> acc.setParent(child, null, currentTime) }
+                .let { it.copy(layers = it.layers.filterNot { layer -> layer.id == id }) }
+        }
     }
 
     /** +1 — yuqoriga (oldinga), −1 — pastga (orqaga). */

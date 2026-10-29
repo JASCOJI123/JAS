@@ -45,6 +45,12 @@ import androidx.compose.ui.unit.dp
 import com.jas.montaj.core.Format
 import com.jas.montaj.motion.MotionEditor
 import com.jas.montaj.motion.Animatable
+import com.jas.montaj.motion.AnimationPreset
+import com.jas.montaj.motion.Bezier
+import com.jas.montaj.motion.Keyframe
+import com.jas.montaj.motion.Wiggle
+import com.jas.montaj.motion.isDescendant
+import androidx.compose.material3.HorizontalDivider
 import com.jas.montaj.motion.EffectKind
 import com.jas.montaj.motion.Easing
 import com.jas.montaj.motion.LayerBlend
@@ -59,7 +65,7 @@ import com.jas.montaj.motion.Vec2
 import com.jas.montaj.motion.toggleKeyframe
 import com.jas.montaj.motion.valueAt
 
-private val tabs = listOf("Transform", "Kontent", "Effekt", "Mask", "Qatlam")
+private val tabs = listOf("Transform", "Kontent", "Effekt", "Mask", "Bog'lash", "Qatlam")
 
 @Composable
 fun LayerInspector(editor: MotionEditor, layer: MotionLayer) {
@@ -73,10 +79,13 @@ fun LayerInspector(editor: MotionEditor, layer: MotionLayer) {
         }
     }
     when (tab) {
-        0 -> TransformTab(layer, time, editor.project.width.toDouble(), editor.project.height.toDouble(), update)
+        0 -> TransformTab(layer, time, editor.project.width.toDouble(), editor.project.height.toDouble(), update) { preset ->
+            editor.applyPreset(layer.id, preset)
+        }
         1 -> ContentTab(layer, update)
         2 -> EffectsTab(layer, time, update)
         3 -> MaskTab(layer, update)
+        4 -> LinkTab(editor, layer, update)
         else -> LayerTab(editor, layer, update)
     }
 }
@@ -84,16 +93,25 @@ fun LayerInspector(editor: MotionEditor, layer: MotionLayer) {
 // region Transform
 
 @Composable
-private fun TransformTab(layer: MotionLayer, time: Double, width: Double, height: Double, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+private fun TransformTab(
+    layer: MotionLayer,
+    time: Double,
+    width: Double,
+    height: Double,
+    update: ((MotionLayer) -> MotionLayer) -> Unit,
+    onPreset: (AnimationPreset) -> Unit,
+) {
+    PresetMenu(onPreset)
     val position = layer.position.valueAt(time)
+    val positionIndex = layer.position.keyframeIndex(time)
     PropertyHeader(
         title = "Joyi",
         valueText = "${position.x.toInt()}, ${position.y.toInt()}",
         isAnimated = layer.position.isAnimated,
-        keyframeIndex = layer.position.keyframeIndex(time),
-        easing = layer.position.keyframeIndex(time)?.let { layer.position.keyframes[it].easing },
+        keyframe = positionIndex?.let { layer.position.keyframes[it] },
         onToggle = { update { it.copy(position = it.position.toggleKeyframe(time)) } },
         onEasing = { easing -> update { it.copy(position = it.position.setEasing(easing, time)) } },
+        onBezier = { bezier -> update { it.copy(position = it.position.setBezier(bezier, time)) } },
     )
     LabeledSlider("X", position.x.toFloat(), (-width * 0.5).toFloat()..(width * 1.5).toFloat(), "", { x ->
         update { it.copy(position = it.position.set(Vec2(x.toDouble(), it.position.valueAt(time).y), time)) }
@@ -123,10 +141,10 @@ fun AnimatableRow(
         title = title,
         valueText = format(value),
         isAnimated = property.isAnimated,
-        keyframeIndex = index,
-        easing = index?.let { property.keyframes[it].easing },
+        keyframe = index?.let { property.keyframes[it] },
         onToggle = { onChange(property.toggleKeyframe(time)) },
         onEasing = { onChange(property.setEasing(it, time)) },
+        onBezier = { onChange(property.setBezier(it, time)) },
     )
     androidx.compose.material3.Slider(
         value = value.coerceIn(range.start, range.endInclusive).toFloat(),
@@ -140,41 +158,65 @@ private fun PropertyHeader(
     title: String,
     valueText: String,
     isAnimated: Boolean,
-    keyframeIndex: Int?,
-    easing: Easing?,
+    keyframe: Keyframe<*>?,
     onToggle: () -> Unit,
     onEasing: (Easing) -> Unit,
+    onBezier: (Bezier?) -> Unit,
 ) {
+    var showGraph by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onToggle, modifier = Modifier.size(36.dp)) {
             val icon = when {
-                keyframeIndex != null -> Icons.Filled.Diamond
+                keyframe != null -> Icons.Filled.Diamond
                 isAnimated -> Icons.Outlined.Diamond
                 else -> Icons.Filled.Timer
             }
             Icon(icon, contentDescription = "Keyframe", tint = if (isAnimated) Color(0xFFFFD91A) else Color.Gray)
         }
         Text(title, style = MaterialTheme.typography.bodyMedium)
-        if (easing != null) {
+        if (keyframe != null) {
             Spacer(Modifier.size(6.dp))
-            EasingMenu(easing, onEasing)
+            EasingMenu(if (keyframe.bezier != null) "Grafik" else keyframe.easing.title, onEasing) { showGraph = true }
         }
         Spacer(Modifier.weight(1f))
         Text(valueText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    if (showGraph && keyframe != null) {
+        GraphEditorDialog(
+            initial = keyframe.bezier ?: Bezier.presets.first { it.first == "Easy Ease" }.second,
+            onApply = onBezier,
+            onDismiss = { showGraph = false },
+        )
+    }
 }
 
 @Composable
-private fun EasingMenu(current: Easing, onSelect: (Easing) -> Unit) {
+private fun EasingMenu(current: String, onSelect: (Easing) -> Unit, onGraph: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        AssistChip(onClick = { open = true }, label = { Text(current.title, style = MaterialTheme.typography.labelSmall) })
+        AssistChip(onClick = { open = true }, label = { Text(current, style = MaterialTheme.typography.labelSmall) })
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             Easing.entries.forEach { easing ->
                 DropdownMenuItem(text = { Text(easing.title) }, onClick = { open = false; onSelect(easing) })
             }
+            HorizontalDivider()
+            DropdownMenuItem(text = { Text("Graph editor…") }, onClick = { open = false; onGraph() })
         }
     }
+}
+
+@Composable
+private fun PresetMenu(onPreset: (AnimationPreset) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        OutlinedButton(onClick = { open = true }) { Text("✨ Animatsiya preseti") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            AnimationPreset.entries.forEach { preset ->
+                DropdownMenuItem(text = { Text(preset.title) }, onClick = { open = false; onPreset(preset) })
+            }
+        }
+    }
+    HintText("Preset joriy vaqtdan boshlab keyframe'lar qo'yadi.")
 }
 
 // endregion
@@ -313,6 +355,41 @@ private fun MaskTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -
     TextButton(onClick = { update { it.copy(mask = null) } }) {
         Text("Maskani olib tashlash", color = MaterialTheme.colorScheme.error)
     }
+}
+
+// endregion
+
+// region Bog'lash (parenting, wiggle, loop)
+
+@Composable
+private fun LinkTab(editor: MotionEditor, layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val project = editor.project
+    val parent = project.layers.firstOrNull { it.id == layer.parentId }
+    SectionTitle("Parent (ota-qatlam)")
+    Box {
+        OutlinedButton(onClick = { open = true }) { Text(parent?.name ?: "Yo'q") }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(text = { Text("Yo'q") }, onClick = { open = false; editor.setParent(layer.id, null) })
+            project.layers.filter { it.id != layer.id && !project.isDescendant(it.id, of = layer.id) }.forEach { candidate ->
+                DropdownMenuItem(text = { Text(candidate.name) }, onClick = { open = false; editor.setParent(layer.id, candidate.id) })
+            }
+        }
+    }
+    HintText("Bog'langan qatlam ota-qatlam bilan birga suriladi, buriladi va kattalashadi (null object kabi).")
+
+    SectionTitle("Wiggle (tebranish)")
+    val wiggle = layer.wiggle
+    val setWiggle: (Wiggle) -> Unit = { changed -> update { it.copy(wiggle = changed) } }
+    LabeledSlider("Chastota", wiggle.frequency.toFloat(), 0.2f..12f, "${Format.decimal(wiggle.frequency, 1)} /s", { setWiggle(wiggle.copy(frequency = it.toDouble())) })
+    LabeledSlider("Joy", wiggle.position.toFloat(), 0f..200f, Format.pixels(wiggle.position), { setWiggle(wiggle.copy(position = it.toDouble())) })
+    LabeledSlider("Burilish", wiggle.rotation.toFloat(), 0f..45f, Format.degrees(wiggle.rotation), { setWiggle(wiggle.copy(rotation = it.toDouble())) })
+    LabeledSlider("O'lcham", wiggle.scale.toFloat(), 0f..0.5f, Format.percent(wiggle.scale), { setWiggle(wiggle.copy(scale = it.toDouble())) })
+    HintText("AE'dagi wiggle(chastota, miqdor) ekspressiyasi: silliq tasodifiy harakat.")
+
+    SectionTitle("Loop")
+    SwitchRow("Animatsiyani takrorlash (loopOut)", layer.loopKeyframes) { on -> update { it.copy(loopKeyframes = on) } }
+    HintText("Oxirgi keyframe'dan keyin animatsiya birinchisidan qayta boshlanadi.")
 }
 
 // endregion

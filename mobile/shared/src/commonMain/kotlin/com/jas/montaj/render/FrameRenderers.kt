@@ -10,6 +10,7 @@ import com.jas.montaj.motion.LayerContent
 import com.jas.montaj.motion.MotionLayer
 import com.jas.montaj.motion.MotionProject
 import com.jas.montaj.motion.valueAt
+import com.jas.montaj.motion.worldTransform
 import com.jas.montaj.platform.FrameSource
 import com.jas.montaj.platform.MediaBackend
 
@@ -43,14 +44,14 @@ class MotionRenderer(private val text: TextRenderer, private val media: MediaBac
             val opacity = layer.opacity.valueAt(time).coerceIn(0.0, 1.0)
             if (opacity <= 0.001) continue
 
-            val position = layer.position.valueAt(time) + EffectRenderer.shakeOffset(layer.effects, time)
-            val layerScale = layer.scale.valueAt(time).toFloat()
+            val transform = project.worldTransform(layer, time)
+            val layerScale = transform.scale.toFloat()
             val halfWidth = image.logicalWidth / 2
             val halfHeight = image.logicalHeight / 2
 
             canvas.save()
-            canvas.translate(position.x.toFloat(), position.y.toFloat())
-            canvas.rotate(layer.rotation.valueAt(time).toFloat())
+            canvas.translate(transform.position.x.toFloat(), transform.position.y.toFloat())
+            canvas.rotate(transform.rotation.toFloat())
             canvas.scale(layerScale, layerScale)
             val paint = Graphics.smoothPaint().apply {
                 alpha = opacity.toFloat()

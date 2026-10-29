@@ -114,6 +114,21 @@ data class LayerMask(
     val inverted: Boolean = false,
 )
 
+/** AE'dagi wiggle() ekspressiyasi: silliq tasodifiy tebranish. */
+@Serializable
+data class Wiggle(
+    /** Soniyasiga necha marta. */
+    val frequency: Double = 2.0,
+    /** Piksel. */
+    val position: Double = 0.0,
+    /** Gradus. */
+    val rotation: Double = 0.0,
+    /** Ulush (0.1 = ±10%). */
+    val scale: Double = 0.0,
+) {
+    val isActive: Boolean get() = position > 0 || rotation > 0 || scale > 0
+}
+
 @Serializable
 data class MotionLayer(
     val id: String = newId(),
@@ -133,6 +148,11 @@ data class MotionLayer(
     val blend: LayerBlend = LayerBlend.NORMAL,
     val effects: List<LayerEffect> = emptyList(),
     val mask: LayerMask? = null,
+    /** Parenting: shu qatlam ota-qatlam bilan birga harakatlanadi (pozitsiya ota koordinatalarida). */
+    val parentId: String? = null,
+    val wiggle: Wiggle = Wiggle(),
+    /** loopOut(): oxirgi keyframe'dan keyin animatsiya qaytadan boshlanadi. */
+    val loopKeyframes: Boolean = false,
 ) {
     fun isActive(time: Double): Boolean = visible && time >= inPoint && time < outPoint
 
