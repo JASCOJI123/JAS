@@ -6,6 +6,7 @@ import platform.AVFoundation.*
 import platform.CoreGraphics.*
 import platform.CoreImage.*
 import platform.CoreMedia.*
+import platform.Foundation.setValue
 import platform.UIKit.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
