@@ -281,6 +281,17 @@ class MotionEditor(
 
     fun setParent(id: String, parentId: String?) = updateProject { it.setParent(id, parentId, currentTime) }
 
+    /** Qatlamni vaqt bo'yicha suradi (keyframe'lari bilan birga). */
+    fun shiftLayer(id: String, delta: Double) = updateLayer(id) { layer ->
+        val shift = delta.coerceIn(-layer.inPoint, (project.duration - layer.inPoint - 0.1).coerceAtLeast(0.0))
+        layer.shifted(shift)
+    }
+
+    fun closeProject() {
+        stopPlayback()
+        flushSave()
+    }
+
     fun duplicateLayer(id: String) {
         val index = project.layers.indexOfFirst { it.id == id }
         if (index < 0) return

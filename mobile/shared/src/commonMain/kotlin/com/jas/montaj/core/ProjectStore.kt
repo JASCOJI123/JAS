@@ -1,6 +1,7 @@
 package com.jas.montaj.core
 
 import com.jas.montaj.montaj.MontajState
+import com.jas.montaj.motion.LayerContent
 import com.jas.montaj.motion.MotionProject
 import com.jas.montaj.platform.Storage
 import kotlinx.serialization.Serializable
@@ -16,6 +17,10 @@ data class ProjectInfo(
     val name: String,
     val kind: ProjectKind,
     val updatedAt: Long,
+    val durationSec: Double = 0.0,
+    /** Bosh ekrandagi kartochka rasmi uchun video yoki rasm yo'li. */
+    val coverPath: String? = null,
+    val coverIsVideo: Boolean = true,
 )
 
 @Serializable
@@ -50,9 +55,31 @@ class ProjectStore(private val storage: Storage) {
 
     fun loadMotion(id: String): MotionProject? = load(id)?.motion
 
-    fun saveMontaj(info: ProjectInfo, state: MontajState) = save(StoredProject(info.copy(updatedAt = storage.nowMillis()), montaj = state))
+    fun saveMontaj(info: ProjectInfo, state: MontajState) = save(
+        StoredProject(
+            info.copy(updatedAt = storage.nowMillis(), durationSec = state.totalDuration, coverPath = state.clips.firstOrNull()?.path, coverIsVideo = true),
+            montaj = state,
+        ),
+    )
 
-    fun saveMotion(info: ProjectInfo, project: MotionProject) = save(StoredProject(info.copy(updatedAt = storage.nowMillis()), motion = project))
+    fun saveMotion(info: ProjectInfo, project: MotionProject): Unit {
+        val cover = project.layers.firstNotNullOfOrNull { layer ->
+            when (val content = layer.content) {
+                is LayerContent.Video -> content.path to true
+                is LayerContent.Image -> content.path to false
+                else -> null
+            }
+        }
+        save(
+            StoredProject(
+                info.copy(updatedAt = storage.nowMillis(), durationSec = project.duration, coverPath = cover?.first, coverIsVideo = cover?.second ?: true),
+                motion = project,
+            ),
+        )
+    }
+
+    /** Bosh ekran uchun ikkala turdagi loyihalar. */
+    fun listAll(): List<ProjectInfo> = (list(ProjectKind.MONTAJ) + list(ProjectKind.MOTION)).sortedByDescending { it.updatedAt }
 
     fun rename(id: String, name: String) {
         val stored = load(id) ?: return

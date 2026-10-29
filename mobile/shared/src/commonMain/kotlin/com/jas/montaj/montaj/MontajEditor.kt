@@ -11,6 +11,7 @@ import com.jas.montaj.core.ExportState
 import com.jas.montaj.core.SettingsStore
 import com.jas.montaj.core.Transcriber
 import com.jas.montaj.core.History
+import com.jas.montaj.core.newId
 import com.jas.montaj.core.ProjectInfo
 import com.jas.montaj.core.ProjectKind
 import com.jas.montaj.core.ProjectStore
@@ -240,6 +241,48 @@ class MontajEditor(
         val clips = current.clips.toMutableList()
         clips[index] = clips[target].also { clips[target] = clips[index] }
         current.copy(clips = clips)
+    }
+
+    /** CapCut'dagi "Bo'lish": klipni kursor turgan joydan ikkiga ajratadi. */
+    fun splitAtPlayhead(): Boolean {
+        val current = state
+        val starts = current.clipStarts
+        val index = starts.indexOfLast { it <= currentTime }.takeIf { it >= 0 } ?: return false
+        val clip = current.clips[index]
+        val sourceTime = clip.trimStart + (currentTime - starts[index]) * clip.speed
+        if (sourceTime - clip.trimStart < Clip.MIN_LENGTH || clip.trimEnd - sourceTime < Clip.MIN_LENGTH) return false
+        val first = clip.copy(trimEnd = sourceTime, transition = TransitionKind.NONE)
+        val second = clip.copy(id = newId(), trimStart = sourceTime)
+        editorThumbnail(clip.id)?.let { thumbnails[second.id] = it }
+        update { it.copy(clips = it.clips.toMutableList().apply { set(index, first); add(index + 1, second) }) }
+        selectedClipId = second.id
+        return true
+    }
+
+    fun duplicateClip(id: String) {
+        val index = state.clips.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val copy = state.clips[index].copy(id = newId())
+        editorThumbnail(id)?.let { thumbnails[copy.id] = it }
+        update { it.copy(clips = it.clips.toMutableList().apply { add(index + 1, copy) }) }
+        selectedClipId = copy.id
+    }
+
+    private fun editorThumbnail(id: String): ImageBitmap? = thumbnails[id]
+
+    fun duplicateOverlay(id: String) {
+        val overlay = state.overlays.firstOrNull { it.id == id } ?: return
+        val length = overlay.end - overlay.start
+        val copy = overlay.copy(id = newId(), start = overlay.end, end = minOf(overlay.end + length, state.totalDuration))
+        update { it.copy(overlays = it.overlays + copy) }
+        selectedOverlayId = copy.id
+    }
+
+    /** Muharrirdan chiqishda: kutilayotgan saqlashni darhol bajaradi va pleyerni to'xtatadi. */
+    fun closeProject() {
+        if (isRecording) stopRecording()
+        player.pause()
+        flushSave()
     }
 
     fun deleteClip(id: String) {

@@ -38,16 +38,23 @@ import androidx.compose.ui.unit.dp
 import com.jas.montaj.core.Colors
 import com.jas.montaj.core.ExportState
 
-val Accent = Color(0xFFFF5E3A)
+val Accent = Color(0xFF20D5EC)
 
+/** CapCut uslubidagi qorong'i mavzu. */
 @Composable
 fun MontajTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = Accent,
-            secondary = Color(0xFFFFC83A),
+            onPrimary = Color.Black,
+            secondary = Color(0xFFFE2C55),
             background = Color.Black,
-            surface = Color(0xFF121212),
+            surface = Color(0xFF141414),
+            surfaceVariant = Color(0xFF242426),
+            surfaceContainer = Color(0xFF1C1C1E),
+            surfaceContainerHigh = Color(0xFF242426),
+            onSurface = Color.White,
+            onSurfaceVariant = Color(0xFF8E8E93),
         ),
         content = content,
     )

@@ -120,3 +120,17 @@ object Noise {
         return (x and 0x7fffffff) / 2147483647.0 * 2 - 1
     }
 }
+
+/** Qatlamni [delta] soniyaga suradi: In/Out va barcha keyframe'lar birga. */
+fun MotionLayer.shifted(delta: Double): MotionLayer {
+    fun <T> Animatable<T>.moved() = copy(keyframes = keyframes.map { it.copy(time = it.time + delta) })
+    return copy(
+        inPoint = inPoint + delta,
+        outPoint = outPoint + delta,
+        position = position.moved(),
+        scale = scale.moved(),
+        rotation = rotation.moved(),
+        opacity = opacity.moved(),
+        effects = effects.map { it.copy(amount = it.amount.moved()) },
+    )
+}
