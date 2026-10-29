@@ -54,6 +54,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -82,17 +83,23 @@ private val panelTitles = listOf("Kliplar", "Ovoz", "Matn", "Filtr")
 @Composable
 fun MontajScreen(editor: MontajEditor, modifier: Modifier = Modifier) {
     var panel by rememberSaveable { mutableIntStateOf(0) }
+    var showProjects by remember { mutableStateOf(false) }
     val pickVideos = rememberMediaPicker(PickKind.VIDEO, multiple = true, onPicked = editor::importVideos)
 
     Box(modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Montaj") },
+                    title = { Text(editor.projectInfo.name, maxLines = 1) },
                     navigationIcon = {
                         IconButton(onClick = pickVideos) { Icon(Icons.Filled.Add, contentDescription = "Video qo'shish") }
                     },
                     actions = {
+                        UndoRedoButtons(editor.history, editor::undo, editor::redo)
+                        ProjectsButton {
+                            editor.refreshProjects()
+                            showProjects = true
+                        }
                         TextButton(
                             onClick = editor::export,
                             enabled = editor.state.clips.isNotEmpty() && editor.exportState == ExportState.Idle,
@@ -129,6 +136,17 @@ fun MontajScreen(editor: MontajEditor, modifier: Modifier = Modifier) {
         if (editor.isImporting) BusyOverlay("Yuklanmoqda…")
         ExportDialog(editor.exportState, onShare = editor::share, onDismiss = editor::dismissExport)
         ErrorDialog(editor.errorMessage) { editor.errorMessage = null }
+        if (showProjects) {
+            ProjectsDialog(
+                current = editor.projectInfo,
+                projects = editor.projects,
+                onOpen = { editor.openProject(it); showProjects = false },
+                onNew = { editor.newProject(); showProjects = false },
+                onRename = editor::renameProject,
+                onDelete = editor::deleteProject,
+                onDismiss = { showProjects = false },
+            )
+        }
     }
 }
 

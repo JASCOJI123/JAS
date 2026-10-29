@@ -7,6 +7,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontFamily
 import com.jas.montaj.core.ExportState
+import com.jas.montaj.core.History
+import com.jas.montaj.core.ProjectInfo
+import com.jas.montaj.core.ProjectKind
+import com.jas.montaj.core.ProjectStore
 import com.jas.montaj.platform.AudioSegment
 import com.jas.montaj.platform.ExportJob
 import com.jas.montaj.platform.MediaBackend
@@ -25,7 +29,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Montaj rejimining holati va amallari (iOS va Android uchun bitta kod). */
-class MontajEditor(private val media: MediaBackend, private val fonts: FontFamily.Resolver) {
+class MontajEditor(
+    private val media: MediaBackend,
+    private val fonts: FontFamily.Resolver,
+    private val store: ProjectStore,
+) {
     var state by mutableStateOf(MontajState())
         private set
     var selectedClipId by mutableStateOf<String?>(null)
@@ -46,8 +54,18 @@ class MontajEditor(private val media: MediaBackend, private val fonts: FontFamil
     val player = media.createPlayer()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var rebuildJob: Job? = null
+    private var saveJob: Job? = null
+
+    val history = History<MontajState>()
+    var projectInfo by mutableStateOf(store.newInfo(ProjectKind.MONTAJ))
+        private set
+    var projects by mutableStateOf(emptyList<ProjectInfo>())
+        private set
 
     init {
+        val lastId = store.lastOpened(ProjectKind.MONTAJ)
+        if (lastId != null) openProject(lastId) else store.setLastOpened(ProjectKind.MONTAJ, projectInfo.id)
+
         scope.launch {
             while (isActive) {
                 val playing = player.isPlaying
@@ -59,9 +77,98 @@ class MontajEditor(private val media: MediaBackend, private val fonts: FontFamil
     }
 
     private fun update(change: (MontajState) -> MontajState) {
-        state = change(state)
-        scheduleRebuild()
+        val before = state
+        val after = change(before)
+        if (after == before) return
+        history.record(before)
+        apply(after)
     }
+
+    /** Holatni o'rnatadi: ko'rish oynasi qayta quriladi va loyiha avtomatik saqlanadi. */
+    private fun apply(newState: MontajState, save: Boolean = true) {
+        state = newState
+        if (selectedClipId != null && newState.clips.none { it.id == selectedClipId }) selectedClipId = newState.clips.firstOrNull()?.id
+        if (selectedOverlayId != null && newState.overlays.none { it.id == selectedOverlayId }) selectedOverlayId = null
+        scheduleRebuild()
+        if (save) scheduleSave()
+    }
+
+    // region Undo / Redo va loyihalar
+
+    fun undo() {
+        history.undo(state)?.let { apply(it) }
+    }
+
+    fun redo() {
+        history.redo(state)?.let { apply(it) }
+    }
+
+    fun refreshProjects() {
+        projects = store.list(ProjectKind.MONTAJ)
+    }
+
+    fun openProject(id: String) {
+        val loaded = store.loadMontaj(id) ?: return
+        flushSave()
+        player.pause()
+        projectInfo = store.list(ProjectKind.MONTAJ).firstOrNull { it.id == id } ?: projectInfo.copy(id = id)
+        store.setLastOpened(ProjectKind.MONTAJ, id)
+        history.clear()
+        thumbnails.clear()
+        currentTime = 0.0
+        selectedClipId = loaded.clips.firstOrNull()?.id
+        selectedOverlayId = null
+        apply(loaded, save = false)
+        scope.launch {
+            loaded.clips.forEach { clip ->
+                withContext(Dispatchers.Default) { media.thumbnail(clip.path) }?.let { thumbnails[clip.id] = it }
+            }
+        }
+    }
+
+    fun newProject() {
+        flushSave()
+        player.pause()
+        projectInfo = store.newInfo(ProjectKind.MONTAJ)
+        store.setLastOpened(ProjectKind.MONTAJ, projectInfo.id)
+        history.clear()
+        thumbnails.clear()
+        currentTime = 0.0
+        selectedClipId = null
+        selectedOverlayId = null
+        apply(MontajState(), save = false)
+    }
+
+    fun renameProject(name: String) {
+        projectInfo = projectInfo.copy(name = name.ifBlank { projectInfo.name })
+        scheduleSave()
+    }
+
+    fun deleteProject(id: String) {
+        store.delete(id)
+        if (id == projectInfo.id) newProject()
+        refreshProjects()
+    }
+
+    private fun scheduleSave() {
+        saveJob?.cancel()
+        saveJob = scope.launch {
+            delay(800)
+            val info = projectInfo
+            val snapshot = state
+            withContext(Dispatchers.Default) { store.saveMontaj(info, snapshot) }
+        }
+    }
+
+    /** Boshqa loyihaga o'tishdan oldin kutilayotgan saqlashni darhol bajaradi. */
+    private fun flushSave() {
+        if (saveJob?.isActive == true) {
+            saveJob?.cancel()
+            store.saveMontaj(projectInfo, state)
+        }
+    }
+
+    // endregion
 
     // region Kliplar
 
@@ -101,8 +208,6 @@ class MontajEditor(private val media: MediaBackend, private val fonts: FontFamil
 
     fun deleteClip(id: String) {
         update { current -> current.copy(clips = current.clips.filterNot { it.id == id }) }
-        thumbnails.remove(id)
-        if (selectedClipId == id) selectedClipId = state.clips.firstOrNull()?.id
     }
 
     // endregion
@@ -146,7 +251,6 @@ class MontajEditor(private val media: MediaBackend, private val fonts: FontFamil
     }
 
     fun deleteOverlay(id: String) {
-        if (selectedOverlayId == id) selectedOverlayId = null
         update { current -> current.copy(overlays = current.overlays.filterNot { it.id == id }) }
     }
 
@@ -236,6 +340,7 @@ class MontajEditor(private val media: MediaBackend, private val fonts: FontFamil
     }
 
     fun dispose() {
+        flushSave()
         player.release()
         scope.cancel()
     }

@@ -20,7 +20,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import com.jas.montaj.montaj.MontajEditor
 import com.jas.montaj.motion.MotionEditor
+import com.jas.montaj.core.ProjectStore
 import com.jas.montaj.platform.mediaBackend
+import com.jas.montaj.platform.storage
 import com.jas.montaj.ui.MontajScreen
 import com.jas.montaj.ui.MontajTheme
 import com.jas.montaj.ui.MotionScreen
@@ -29,8 +31,9 @@ import com.jas.montaj.ui.MotionScreen
 @Composable
 fun App() {
     val fonts = LocalFontFamilyResolver.current
-    val montaj = remember { MontajEditor(mediaBackend(), fonts) }
-    val motion = remember { MotionEditor(mediaBackend(), fonts) }
+    val store = remember { ProjectStore(storage()) }
+    val montaj = remember { MontajEditor(mediaBackend(), fonts, store) }
+    val motion = remember { MotionEditor(mediaBackend(), fonts, store) }
     DisposableEffect(Unit) {
         onDispose {
             montaj.dispose()

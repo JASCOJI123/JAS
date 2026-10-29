@@ -65,6 +65,7 @@ import com.jas.montaj.motion.valueAt
 @Composable
 fun MotionScreen(editor: MotionEditor, modifier: Modifier = Modifier) {
     var showSettings by remember { mutableStateOf(false) }
+    var showProjects by remember { mutableStateOf(false) }
     var showAddMenu by remember { mutableStateOf(false) }
     val pickVideo = rememberMediaPicker(PickKind.VIDEO, multiple = false, onPicked = editor::addVideos)
     val pickImage = rememberMediaPicker(PickKind.IMAGE, multiple = false, onPicked = editor::addImages)
@@ -73,11 +74,16 @@ fun MotionScreen(editor: MotionEditor, modifier: Modifier = Modifier) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("Motion") },
+                    title = { Text(editor.projectInfo.name, maxLines = 1) },
                     navigationIcon = {
-                        IconButton(onClick = { showSettings = true }) { Icon(Icons.Filled.Settings, contentDescription = "Loyiha") }
+                        ProjectsButton {
+                            editor.refreshProjects()
+                            showProjects = true
+                        }
                     },
                     actions = {
+                        UndoRedoButtons(editor.history, editor::undo, editor::redo)
+                        IconButton(onClick = { showSettings = true }) { Icon(Icons.Filled.Settings, contentDescription = "Sozlamalar") }
                         Box {
                             IconButton(onClick = { showAddMenu = true }) {
                                 Icon(Icons.Filled.AddCircle, contentDescription = "Qatlam qo'shish", tint = MaterialTheme.colorScheme.primary)
@@ -133,6 +139,17 @@ fun MotionScreen(editor: MotionEditor, modifier: Modifier = Modifier) {
         }
         if (editor.isImporting) BusyOverlay("Yuklanmoqda…")
         if (showSettings) ProjectSettingsDialog(editor) { showSettings = false }
+        if (showProjects) {
+            ProjectsDialog(
+                current = editor.projectInfo,
+                projects = editor.projects,
+                onOpen = { editor.openProject(it); showProjects = false },
+                onNew = { editor.newProject(); showProjects = false },
+                onRename = editor::renameProject,
+                onDelete = editor::deleteProject,
+                onDismiss = { showProjects = false },
+            )
+        }
         ExportDialog(editor.exportState, onShare = editor::share, onDismiss = editor::dismissExport)
         ErrorDialog(editor.errorMessage) { editor.errorMessage = null }
     }

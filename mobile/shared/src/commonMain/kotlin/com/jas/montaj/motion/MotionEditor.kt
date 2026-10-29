@@ -6,6 +6,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.text.font.FontFamily
 import com.jas.montaj.core.ExportState
+import com.jas.montaj.core.History
+import com.jas.montaj.core.ProjectInfo
+import com.jas.montaj.core.ProjectKind
+import com.jas.montaj.core.ProjectStore
 import com.jas.montaj.platform.AudioSegment
 import com.jas.montaj.platform.ExportJob
 import com.jas.montaj.platform.MediaBackend
@@ -27,7 +31,11 @@ import kotlin.time.TimeSource
 
 /** Motion rejimining holati va amallari (iOS va Android uchun bitta kod). */
 @OptIn(ExperimentalCoroutinesApi::class)
-class MotionEditor(private val media: MediaBackend, private val fonts: FontFamily.Resolver) {
+class MotionEditor(
+    private val media: MediaBackend,
+    private val fonts: FontFamily.Resolver,
+    private val store: ProjectStore,
+) {
     var project by mutableStateOf(MotionProject())
         private set
     var selectedLayerId by mutableStateOf<String?>(null)
@@ -50,6 +58,13 @@ class MotionEditor(private val media: MediaBackend, private val fonts: FontFamil
     private val frames = media.openFrameSource()
     private val renderRequests = Channel<Unit>(Channel.CONFLATED)
     private var playJob: Job? = null
+    private var saveJob: Job? = null
+
+    val history = History<MotionProject>()
+    var projectInfo by mutableStateOf(store.newInfo(ProjectKind.MOTION))
+        private set
+    var projects by mutableStateOf(emptyList<ProjectInfo>())
+        private set
 
     val selectedLayer: MotionLayer? get() = project.layers.firstOrNull { it.id == selectedLayerId }
 
@@ -64,6 +79,8 @@ class MotionEditor(private val media: MediaBackend, private val fonts: FontFamil
                 previewFrame = frame
             }
         }
+        val lastId = store.lastOpened(ProjectKind.MOTION)
+        if (lastId != null) openProject(lastId) else store.setLastOpened(ProjectKind.MOTION, projectInfo.id)
         requestRender()
     }
 
@@ -72,10 +89,88 @@ class MotionEditor(private val media: MediaBackend, private val fonts: FontFamil
     }
 
     fun updateProject(change: (MotionProject) -> MotionProject) {
-        project = change(project)
-        currentTime = currentTime.coerceAtMost(project.duration)
-        requestRender()
+        val before = project
+        val after = change(before)
+        if (after == before) return
+        history.record(before)
+        apply(after)
     }
+
+    /** Loyihani o'rnatadi: kadr qayta chiziladi va avtomatik saqlanadi. */
+    private fun apply(newProject: MotionProject, save: Boolean = true) {
+        project = newProject
+        currentTime = currentTime.coerceAtMost(newProject.duration)
+        if (selectedLayerId != null && newProject.layers.none { it.id == selectedLayerId }) selectedLayerId = null
+        requestRender()
+        if (save) scheduleSave()
+    }
+
+    // region Undo / Redo va loyihalar
+
+    fun undo() {
+        history.undo(project)?.let { apply(it) }
+    }
+
+    fun redo() {
+        history.redo(project)?.let { apply(it) }
+    }
+
+    fun refreshProjects() {
+        projects = store.list(ProjectKind.MOTION)
+    }
+
+    fun openProject(id: String) {
+        val loaded = store.loadMotion(id) ?: return
+        flushSave()
+        stopPlayback()
+        projectInfo = store.list(ProjectKind.MOTION).firstOrNull { it.id == id } ?: projectInfo.copy(id = id)
+        store.setLastOpened(ProjectKind.MOTION, id)
+        history.clear()
+        currentTime = 0.0
+        selectedLayerId = null
+        apply(loaded, save = false)
+    }
+
+    fun newProject() {
+        flushSave()
+        stopPlayback()
+        projectInfo = store.newInfo(ProjectKind.MOTION)
+        store.setLastOpened(ProjectKind.MOTION, projectInfo.id)
+        history.clear()
+        currentTime = 0.0
+        selectedLayerId = null
+        apply(MotionProject(), save = false)
+    }
+
+    fun renameProject(name: String) {
+        projectInfo = projectInfo.copy(name = name.ifBlank { projectInfo.name })
+        scheduleSave()
+    }
+
+    fun deleteProject(id: String) {
+        store.delete(id)
+        if (id == projectInfo.id) newProject()
+        refreshProjects()
+    }
+
+    private fun scheduleSave() {
+        saveJob?.cancel()
+        saveJob = scope.launch {
+            delay(800)
+            val info = projectInfo
+            val snapshot = project
+            withContext(Dispatchers.Default) { store.saveMotion(info, snapshot) }
+        }
+    }
+
+    private fun flushSave() {
+        if (saveJob?.isActive == true) {
+            saveJob?.cancel()
+            store.saveMotion(projectInfo, project)
+        }
+    }
+
+    // endregion
 
     fun updateLayer(id: String, change: (MotionLayer) -> MotionLayer) = updateProject { current ->
         current.copy(layers = current.layers.map { if (it.id == id) change(it) else it })
@@ -165,9 +260,8 @@ class MotionEditor(private val media: MediaBackend, private val fonts: FontFamil
                     position = Animatable(updated.center),
                     scale = Animatable(fitScale(content.width, content.height)),
                 )
-                project = updated.copy(layers = updated.layers + layer)
+                updateProject { updated.copy(layers = updated.layers + layer) }
                 selectedLayerId = layer.id
-                requestRender()
             } catch (error: Exception) {
                 errorMessage = "Videoni qo'shib bo'lmadi: ${error.message}"
             } finally {
@@ -186,7 +280,6 @@ class MotionEditor(private val media: MediaBackend, private val fonts: FontFamil
     }
 
     fun deleteLayer(id: String) {
-        if (selectedLayerId == id) selectedLayerId = null
         updateProject { current -> current.copy(layers = current.layers.filterNot { it.id == id }) }
     }
 
@@ -262,6 +355,7 @@ class MotionEditor(private val media: MediaBackend, private val fonts: FontFamil
     }
 
     fun dispose() {
+        flushSave()
         frames.close()
         scope.cancel()
     }
