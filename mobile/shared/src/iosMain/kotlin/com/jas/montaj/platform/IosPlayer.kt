@@ -183,3 +183,6 @@ actual fun PlayerSurface(player: PreviewPlayer, modifier: Modifier) {
     val avPlayer = (player as IosPreviewPlayer).player
     UIKitView(factory = { PlayerContainerView(avPlayer) }, modifier = modifier)
 }
+
+@Composable
+actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) = Unit

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalLayoutApi::class)
 
 package com.jas.montaj.ui
 
@@ -9,32 +9,36 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Gradient
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SquareFoot
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,111 +56,135 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 import com.jas.montaj.core.ExportState
 import com.jas.montaj.core.Format
+import com.jas.montaj.motion.AnimationPreset
 import com.jas.montaj.motion.MotionEditor
-import com.jas.montaj.platform.PickKind
-import com.jas.montaj.platform.rememberMediaPicker
 import com.jas.montaj.motion.MotionTemplate
 import com.jas.montaj.motion.ShapeKind
 import com.jas.montaj.motion.Vec2
 import com.jas.montaj.motion.toParentSpace
 import com.jas.montaj.motion.valueAt
 import com.jas.montaj.motion.worldTransform
+import com.jas.montaj.platform.PickKind
+import com.jas.montaj.platform.PlatformBackHandler
+import com.jas.montaj.platform.rememberMediaPicker
+import kotlin.math.roundToInt
 
+/** Pastdan ochiladigan Motion asbob paneli. */
+private enum class MotionTool(val title: String) {
+    PRESET("Animatsiya presetlari"),
+    TRANSFORM("Transform va keyframe"),
+    CONTENT("Kontent"),
+    EFFECTS("Effektlar"),
+    MASK("Mask"),
+    LINK("Bog'lash: parent, wiggle, loop"),
+    LAYER("Qatlam"),
+    SHAPES("Shakl qo'shish"),
+    TEMPLATES("Shablonlar"),
+}
+
+/** CapCut uslubidagi Motion muharriri (mini After Effects). */
 @Composable
-fun MotionScreen(editor: MotionEditor, modifier: Modifier = Modifier) {
+fun MotionScreen(editor: MotionEditor, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    var tool by remember { mutableStateOf<MotionTool?>(null) }
     var showSettings by remember { mutableStateOf(false) }
-    var showProjects by remember { mutableStateOf(false) }
-    var showAddMenu by remember { mutableStateOf(false) }
+    var pixelsPerSecond by remember { mutableStateOf(48.dp) }
     val pickVideo = rememberMediaPicker(PickKind.VIDEO, multiple = false, onPicked = editor::addVideos)
     val pickImage = rememberMediaPicker(PickKind.IMAGE, multiple = false, onPicked = editor::addImages)
+    val layer = editor.selectedLayer
 
-    Box(modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(editor.projectInfo.name, maxLines = 1) },
-                    navigationIcon = {
-                        ProjectsButton {
-                            editor.refreshProjects()
-                            showProjects = true
-                        }
-                    },
-                    actions = {
-                        UndoRedoButtons(editor.history, editor::undo, editor::redo)
-                        IconButton(onClick = { showSettings = true }) { Icon(Icons.Filled.Settings, contentDescription = "Sozlamalar") }
-                        Box {
-                            IconButton(onClick = { showAddMenu = true }) {
-                                Icon(Icons.Filled.AddCircle, contentDescription = "Qatlam qo'shish", tint = MaterialTheme.colorScheme.primary)
-                            }
-                            DropdownMenu(expanded = showAddMenu, onDismissRequest = { showAddMenu = false }) {
-                                DropdownMenuItem(text = { Text("Matn") }, onClick = { showAddMenu = false; editor.addText() })
-                                DropdownMenuItem(text = { Text("Video") }, onClick = {
-                                    showAddMenu = false
-                                    pickVideo()
-                                })
-                                DropdownMenuItem(text = { Text("Rasm") }, onClick = {
-                                    showAddMenu = false
-                                    pickImage()
-                                })
-                                DropdownMenuItem(text = { Text("Solid (rangli fon)") }, onClick = { showAddMenu = false; editor.addSolid() })
-                                HorizontalDivider()
-                                MotionTemplate.entries.forEach { template ->
-                                    DropdownMenuItem(text = { Text("Shablon: ${template.title}") }, onClick = { showAddMenu = false; editor.addTemplate(template) })
-                                }
-                                HorizontalDivider()
-                                ShapeKind.entries.forEach { kind ->
-                                    DropdownMenuItem(text = { Text("Shakl: ${kind.title}") }, onClick = { showAddMenu = false; editor.addShape(kind) })
-                                }
+    PlatformBackHandler(enabled = true) {
+        when {
+            tool != null -> tool = null
+            editor.selectedLayerId != null -> editor.selectedLayerId = null
+            else -> onClose()
+        }
+    }
+
+    Box(modifier.fillMaxSize().background(CapCut.Background)) {
+        Column(Modifier.fillMaxSize()) {
+            EditorTopBar(
+                title = editor.projectInfo.name,
+                onClose = onClose,
+                onExport = editor::export,
+                exportEnabled = editor.exportState == ExportState.Idle,
+            )
+            Box(Modifier.fillMaxWidth().weight(1f)) { MotionPreview(editor) }
+            TransportBar(editor.currentTime, editor.project.duration, editor.isPlaying, editor::togglePlayback) {
+                UndoRedoButtons(editor.history, editor::undo, editor::redo)
+            }
+
+            val activeTool = tool
+            if (activeTool != null) {
+                ToolPanel(activeTool.title, onDone = { tool = null }, modifier = Modifier.height(330.dp)) {
+                    val update: ((com.jas.montaj.motion.MotionLayer) -> com.jas.montaj.motion.MotionLayer) -> Unit = { change ->
+                        layer?.let { editor.updateLayer(it.id, change) }
+                    }
+                    val time = editor.currentTime
+                    when (activeTool) {
+                        MotionTool.SHAPES -> FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ShapeKind.entries.forEach { kind ->
+                                AssistChip(onClick = { editor.addShape(kind); tool = null }, label = { Text(kind.title) })
                             }
                         }
-                        TextButton(onClick = { editor.export() }, enabled = editor.exportState == ExportState.Idle) {
-                            Text("Saqlash")
+                        MotionTool.TEMPLATES -> MotionTemplate.entries.forEach { template ->
+                            OutlinedButton(onClick = { editor.addTemplate(template); tool = null }, modifier = Modifier.fillMaxWidth()) { Text(template.title) }
                         }
-                    },
-                )
-            },
-        ) { padding ->
-            Column(Modifier.padding(padding).fillMaxSize()) {
-                MotionPreview(editor)
-                Transport(editor)
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    LayerTimeline(editor)
-                    val layer = editor.selectedLayer
-                    if (layer != null) {
-                        LayerInspector(editor, layer)
-                    } else if (editor.project.layers.isEmpty()) {
-                        Text("Qatlam qo'shing", style = MaterialTheme.typography.titleMedium)
-                        HintText(
-                            "Yuqoridagi ⊕ tugmasi orqali matn, video, rasm yoki shakl qo'shing. Xususiyat yonidagi ⏱ tugmasi " +
-                                "keyframe qo'yadi: vaqtni surib, qiymatni o'zgartiring — animatsiya tayyor.",
-                        )
+                        else -> if (layer == null) {
+                            HintText("Qatlam tanlanmagan")
+                        } else {
+                            when (activeTool) {
+                                MotionTool.PRESET -> {
+                                    HintText("Preset joriy vaqtdan boshlab keyframe'lar qo'yadi.")
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        AnimationPreset.entries.forEach { preset ->
+                                            AssistChip(onClick = { editor.applyPreset(layer.id, preset) }, label = { Text(preset.title) })
+                                        }
+                                    }
+                                }
+                                MotionTool.TRANSFORM -> TransformTab(layer, time, editor.project.width.toDouble(), editor.project.height.toDouble(), update) { preset ->
+                                    editor.applyPreset(layer.id, preset)
+                                }
+                                MotionTool.CONTENT -> ContentTab(layer, update)
+                                MotionTool.EFFECTS -> EffectsTab(layer, time, update)
+                                MotionTool.MASK -> MaskTab(layer, update)
+                                MotionTool.LINK -> LinkTab(editor, layer, update)
+                                MotionTool.LAYER -> LayerTab(editor, layer, update)
+                                else -> Unit
+                            }
+                        }
+                    }
+                }
+            } else {
+                MotionLayerTimeline(editor, pixelsPerSecond, onZoom = { factor -> pixelsPerSecond = (pixelsPerSecond * factor).coerceIn(10.dp, 240.dp) })
+                if (layer == null) {
+                    BottomToolbar {
+                        ToolButton(Icons.Filled.TextFields, "Matn") { editor.addText() }
+                        ToolButton(Icons.Filled.Movie, "Video") { pickVideo() }
+                        ToolButton(Icons.Filled.Image, "Rasm") { pickImage() }
+                        ToolButton(Icons.Filled.Category, "Shakl") { tool = MotionTool.SHAPES }
+                        ToolButton(Icons.Filled.Gradient, "Solid") { editor.addSolid() }
+                        ToolButton(Icons.Filled.Dashboard, "Shablon") { tool = MotionTool.TEMPLATES }
+                        ToolButton(Icons.Filled.Settings, "Loyiha") { showSettings = true }
+                    }
+                } else {
+                    BottomToolbar(onBack = { editor.selectedLayerId = null }) {
+                        ToolButton(Icons.Filled.AutoAwesome, "Animatsiya") { tool = MotionTool.PRESET }
+                        ToolButton(Icons.Filled.OpenWith, "Transform") { tool = MotionTool.TRANSFORM }
+                        ToolButton(Icons.Filled.Tune, "Kontent") { tool = MotionTool.CONTENT }
+                        ToolButton(Icons.Filled.WbSunny, "Effekt") { tool = MotionTool.EFFECTS }
+                        ToolButton(Icons.Filled.SquareFoot, "Mask") { tool = MotionTool.MASK }
+                        ToolButton(Icons.Filled.Link, "Bog'lash") { tool = MotionTool.LINK }
+                        ToolButton(Icons.Filled.Layers, "Qatlam") { tool = MotionTool.LAYER }
+                        ToolButton(Icons.Filled.ContentCopy, "Nusxa") { editor.duplicateLayer(layer.id) }
+                        ToolButton(Icons.Filled.Delete, "O'chirish", tint = MaterialTheme.colorScheme.error) { editor.deleteLayer(layer.id) }
                     }
                 }
             }
         }
         if (editor.isImporting) BusyOverlay("Yuklanmoqda…")
         if (showSettings) ProjectSettingsDialog(editor) { showSettings = false }
-        if (showProjects) {
-            ProjectsDialog(
-                current = editor.projectInfo,
-                projects = editor.projects,
-                onOpen = { editor.openProject(it); showProjects = false },
-                onNew = { editor.newProject(); showProjects = false },
-                onRename = editor::renameProject,
-                onDelete = editor::deleteProject,
-                onDismiss = { showProjects = false },
-            )
-        }
         ExportDialog(editor.exportState, onShare = editor::share, onDismiss = editor::dismissExport)
         ErrorDialog(editor.errorMessage) { editor.errorMessage = null }
     }
@@ -167,11 +195,12 @@ private fun MotionPreview(editor: MotionEditor) {
     val project = editor.project
     val currentViewModel by rememberUpdatedState(editor)
     Box(
-        Modifier.fillMaxWidth().height(330.dp).background(Color(0xFF141414)),
+        Modifier.fillMaxSize().background(Color(0xFF0B0B0B)),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier
+                .fillMaxHeight()
                 .aspectRatio(project.width / project.height.toFloat())
                 .background(Color.Black)
                 .pointerInput(Unit) {
@@ -220,27 +249,6 @@ private fun MotionPreview(editor: MotionEditor) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun Transport(editor: MotionEditor) {
-    val duration = editor.project.duration
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { editor.togglePlayback() }) {
-            Icon(if (editor.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Ijro")
-        }
-        Slider(
-            value = editor.currentTime.toFloat(),
-            onValueChange = { editor.seek(it.toDouble()) },
-            valueRange = 0f..duration.toFloat().coerceAtLeast(0.1f),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            "${Format.preciseClock(editor.currentTime)} / ${Format.preciseClock(duration)}",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(start = 8.dp),
-        )
     }
 }
 

@@ -134,3 +134,7 @@ expect fun rememberMicrophonePermission(onResult: (Boolean) -> Unit): () -> Unit
 /** Montaj pleyeri ko'rsatiladigan platforma view'i. */
 @Composable
 expect fun PlayerSurface(player: PreviewPlayer, modifier: Modifier)
+
+/** Android'dagi "orqaga" tugmasi (iOS'da hech narsa qilmaydi — ✕ tugmasi bor). */
+@Composable
+expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)

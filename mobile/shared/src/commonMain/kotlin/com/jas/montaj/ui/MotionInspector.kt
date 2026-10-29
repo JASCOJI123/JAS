@@ -65,35 +65,10 @@ import com.jas.montaj.motion.Vec2
 import com.jas.montaj.motion.toggleKeyframe
 import com.jas.montaj.motion.valueAt
 
-private val tabs = listOf("Transform", "Kontent", "Effekt", "Mask", "Bog'lash", "Qatlam")
-
-@Composable
-fun LayerInspector(editor: MotionEditor, layer: MotionLayer) {
-    var tab by remember { mutableIntStateOf(0) }
-    val update: ((MotionLayer) -> MotionLayer) -> Unit = { change -> editor.updateLayer(layer.id, change) }
-    val time = editor.currentTime
-
-    ScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
-        tabs.forEachIndexed { index, title ->
-            Tab(selected = tab == index, onClick = { tab = index }, text = { Text(title) })
-        }
-    }
-    when (tab) {
-        0 -> TransformTab(layer, time, editor.project.width.toDouble(), editor.project.height.toDouble(), update) { preset ->
-            editor.applyPreset(layer.id, preset)
-        }
-        1 -> ContentTab(layer, update)
-        2 -> EffectsTab(layer, time, update)
-        3 -> MaskTab(layer, update)
-        4 -> LinkTab(editor, layer, update)
-        else -> LayerTab(editor, layer, update)
-    }
-}
-
 // region Transform
 
 @Composable
-private fun TransformTab(
+internal fun TransformTab(
     layer: MotionLayer,
     time: Double,
     width: Double,
@@ -225,7 +200,7 @@ private fun PresetMenu(onPreset: (AnimationPreset) -> Unit) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ContentTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+internal fun ContentTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
     when (val content = layer.content) {
         is LayerContent.Text -> {
             val set: (LayerContent.Text) -> Unit = { newContent -> update { it.copy(content = newContent) } }
@@ -288,7 +263,7 @@ private fun ContentTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer
 // region Effektlar
 
 @Composable
-private fun EffectsTab(layer: MotionLayer, time: Double, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+internal fun EffectsTab(layer: MotionLayer, time: Double, update: ((MotionLayer) -> MotionLayer) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         Button(onClick = { open = true }) { Text("Effekt qo'shish") }
@@ -333,7 +308,7 @@ private fun EffectsTab(layer: MotionLayer, time: Double, update: ((MotionLayer) 
 // region Maska
 
 @Composable
-private fun MaskTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+internal fun MaskTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
     val mask = layer.mask
     if (mask == null) {
         Button(onClick = { update { it.copy(mask = LayerMask()) } }) { Text("Maska qo'shish") }
@@ -362,7 +337,7 @@ private fun MaskTab(layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -
 // region Bog'lash (parenting, wiggle, loop)
 
 @Composable
-private fun LinkTab(editor: MotionEditor, layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+internal fun LinkTab(editor: MotionEditor, layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
     var open by remember { mutableStateOf(false) }
     val project = editor.project
     val parent = project.layers.firstOrNull { it.id == layer.parentId }
@@ -398,7 +373,7 @@ private fun LinkTab(editor: MotionEditor, layer: MotionLayer, update: ((MotionLa
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LayerTab(editor: MotionEditor, layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
+internal fun LayerTab(editor: MotionEditor, layer: MotionLayer, update: ((MotionLayer) -> MotionLayer) -> Unit) {
     val duration = editor.project.duration
     OutlinedTextField(
         value = layer.name,

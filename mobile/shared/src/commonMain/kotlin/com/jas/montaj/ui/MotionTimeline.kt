@@ -1,59 +1,36 @@
 package com.jas.montaj.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jas.montaj.motion.MotionEditor
 import com.jas.montaj.motion.LayerContent
+import com.jas.montaj.motion.MotionEditor
 import com.jas.montaj.motion.MotionLayer
-
-/** After Effects'dagi kabi qatlamlar ro'yxati: eng yuqoridagi qatlam birinchi. */
-@Composable
-fun LayerTimeline(editor: MotionEditor) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        editor.project.layers.asReversed().forEach { layer ->
-            LayerRow(
-                layer = layer,
-                duration = editor.project.duration,
-                currentTime = editor.currentTime,
-                selected = editor.selectedLayerId == layer.id,
-                onClick = { editor.selectedLayerId = if (editor.selectedLayerId == layer.id) null else layer.id },
-                onToggleVisibility = { editor.updateLayer(layer.id) { it.copy(visible = !it.visible) } },
-            )
-        }
-    }
-}
 
 private fun LayerContent.icon(): ImageVector = when (this) {
     is LayerContent.Video -> Icons.Filled.Movie
@@ -62,69 +39,86 @@ private fun LayerContent.icon(): ImageVector = when (this) {
     is LayerContent.Shape -> Icons.Filled.Category
 }
 
+private fun LayerContent.color(): Color = when (this) {
+    is LayerContent.Video -> Color(0xFF3B6CFF)
+    is LayerContent.Image -> Color(0xFF1DB37A)
+    is LayerContent.Text -> CapCut.TextTrack
+    is LayerContent.Shape -> Color(0xFFFF9F0A)
+}
+
+/**
+ * Qatlamlar timeline'i (eng yuqoridagi qatlam birinchi): har biri In..Out bo'lagi,
+ * sariq rombchalar — keyframe'lar. Tanlangan qatlam chetlarini tortib In/Out o'zgaradi,
+ * uzoq bosib surilsa qatlam vaqt bo'yicha ko'chadi.
+ */
 @Composable
-private fun LayerRow(
-    layer: MotionLayer,
-    duration: Double,
-    currentTime: Double,
-    selected: Boolean,
-    onClick: () -> Unit,
-    onToggleVisibility: () -> Unit,
-) {
-    val accent = MaterialTheme.colorScheme.primary
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) accent.copy(alpha = 0.18f) else Color.Gray.copy(alpha = 0.1f))
-            .clickable(onClick = onClick)
-            .padding(end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onToggleVisibility) {
-            Icon(
-                if (layer.visible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                contentDescription = "Ko'rinish",
-                tint = if (layer.visible) MaterialTheme.colorScheme.onSurface else Color.Gray,
+fun MotionLayerTimeline(editor: MotionEditor, pixelsPerSecond: Dp, onZoom: (Float) -> Unit) {
+    val project = editor.project
+    TimelineViewport(
+        currentTime = editor.currentTime,
+        duration = project.duration,
+        pixelsPerSecond = pixelsPerSecond,
+        onSeek = editor::seek,
+        onZoom = onZoom,
+        modifier = Modifier.height(200.dp),
+    ) { scope ->
+        // Loyiha chegarasi.
+        Box(Modifier.fillMaxWidth().height(4.dp)) {
+            Box(Modifier.offset(x = scope.x(0.0)).size(width = scope.width(project.duration), height = 2.dp).background(CapCut.Surface))
+        }
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (project.layers.isEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.offset(x = scope.x(0.0))) {
+                    TrackHint("+ Matn qo'shish") { editor.addText() }
+                }
+            }
+            project.layers.asReversed().forEach { layer ->
+                LayerTrack(scope, editor, layer, editor.selectedLayerId == layer.id)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LayerTrack(scope: TimelineScope, editor: MotionEditor, layer: MotionLayer, selected: Boolean) {
+    val secondsPerPx = 1.0 / with(LocalDensity.current) { scope.pixelsPerSecond.toPx() }
+    val duration = editor.project.duration
+    val end = minOf(layer.outPoint, duration)
+    val move by rememberUpdatedState { dx: Float -> editor.shiftLayer(layer.id, dx * secondsPerPx) }
+    Box(Modifier.fillMaxWidth().height(32.dp)) {
+        TrackBar(
+            label = layer.name,
+            color = layer.content.color().copy(alpha = if (layer.visible) 1f else 0.35f),
+            icon = layer.content.icon(),
+            selected = selected,
+            modifier = Modifier
+                .offset(x = scope.x(layer.inPoint))
+                .pointerInput(layer.id) {
+                    detectDragGesturesAfterLongPress { change, drag ->
+                        change.consume()
+                        move(drag.x)
+                    }
+                },
+            width = scope.width(end - layer.inPoint),
+            height = 26.dp,
+            onClick = { editor.selectedLayerId = if (selected) null else layer.id },
+        )
+        layer.allKeyframeTimes.distinct().forEach { time ->
+            Box(
+                Modifier
+                    .offset(x = scope.x(time) - 5.dp, y = 11.dp)
+                    .size(10.dp)
+                    .rotate(45f)
+                    .background(Color(0xFFFFD91A)),
             )
         }
-        Icon(layer.content.icon(), contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
-        Text(
-            layer.name,
-            maxLines = 1,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.width(96.dp).padding(start = 8.dp),
-        )
-        val keyframes = layer.allKeyframeTimes.distinct()
-        Canvas(Modifier.weight(1f).height(18.dp)) {
-            val safeDuration = duration.coerceAtLeast(0.1)
-            fun x(time: Double) = (time / safeDuration * size.width).toFloat()
-            drawRoundRect(Color.Gray.copy(alpha = 0.15f), cornerRadius = CornerRadius(size.height / 2))
-            val start = x(layer.inPoint)
-            val end = x(minOf(layer.outPoint, duration)).coerceAtLeast(start + 4f)
-            drawRoundRect(
-                accent.copy(alpha = if (layer.visible) 0.45f else 0.15f),
-                topLeft = Offset(start, 0f),
-                size = Size(end - start, size.height),
-                cornerRadius = CornerRadius(size.height / 2),
-            )
-            keyframes.forEach { time ->
-                val cx = x(time)
-                val cy = size.height / 2
-                val r = size.height * 0.3f
-                drawPath(
-                    Path().apply {
-                        moveTo(cx, cy - r)
-                        lineTo(cx + r, cy)
-                        lineTo(cx, cy + r)
-                        lineTo(cx - r, cy)
-                        close()
-                    },
-                    Color(0xFFFFD91A),
-                )
+        if (selected) {
+            TrimHandle(Modifier.offset(x = scope.x(layer.inPoint) - 14.dp), height = 26.dp) { dx ->
+                editor.updateLayer(layer.id) { it.copy(inPoint = (it.inPoint + dx * secondsPerPx).coerceIn(0.0, it.outPoint - 0.1)) }
             }
-            val playhead = x(currentTime)
-            drawLine(Color.Red, Offset(playhead, 0f), Offset(playhead, size.height), strokeWidth = 3f)
+            TrimHandle(Modifier.offset(x = scope.x(end)), height = 26.dp) { dx ->
+                editor.updateLayer(layer.id) { it.copy(outPoint = (it.outPoint + dx * secondsPerPx).coerceIn(it.inPoint + 0.1, duration)) }
+            }
         }
     }
 }

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-
 package com.jas.montaj.ui
 
 import androidx.compose.foundation.Canvas
@@ -7,476 +5,396 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FilterVintage
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jas.montaj.core.Transcriber
 import com.jas.montaj.core.ExportState
-import com.jas.montaj.core.Format
 import com.jas.montaj.montaj.Clip
 import com.jas.montaj.montaj.MontajEditor
 import com.jas.montaj.montaj.MontajState
-import com.jas.montaj.montaj.TextPosition
 import com.jas.montaj.montaj.TransitionKind
-import com.jas.montaj.montaj.VideoFilter
 import com.jas.montaj.platform.PickKind
+import com.jas.montaj.platform.PlatformBackHandler
 import com.jas.montaj.platform.PlayerSurface
 import com.jas.montaj.platform.rememberMediaPicker
-import com.jas.montaj.platform.rememberMicrophonePermission
-import com.jas.montaj.render.Graphics
+import kotlin.math.ceil
 
-private val panelTitles = listOf("Kliplar", "Ovoz", "Matn", "Filtr")
+/** Timeline'da nima tanlangan. */
+private sealed interface Selection {
+    data object None : Selection
+    data class ClipItem(val id: String) : Selection
+    data class Overlay(val id: String) : Selection
+    data object Music : Selection
+    data class Voice(val id: String) : Selection
+}
 
+/** Pastdan ochiladigan asbob paneli. */
+private enum class Tool(val title: String) {
+    AUDIO("Ovoz"),
+    TEXT("Matn"),
+    TEXT_EDIT("Matnni tahrirlash"),
+    FILTER("Filtrlar"),
+    SPEED("Tezlik va qirqish"),
+    TRANSITION("O'tish effekti"),
+}
+
+/** CapCut uslubidagi Montaj muharriri. */
 @Composable
-fun MontajScreen(editor: MontajEditor, modifier: Modifier = Modifier) {
-    var panel by rememberSaveable { mutableIntStateOf(0) }
-    var showProjects by remember { mutableStateOf(false) }
+fun MontajScreen(editor: MontajEditor, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    var selection by remember { mutableStateOf<Selection>(Selection.None) }
+    var tool by remember { mutableStateOf<Tool?>(null) }
+    var transitionClipId by remember { mutableStateOf<String?>(null) }
+    var pixelsPerSecond by remember { mutableStateOf(64.dp) }
     val pickVideos = rememberMediaPicker(PickKind.VIDEO, multiple = true, onPicked = editor::importVideos)
+    val pickMusic = rememberMediaPicker(PickKind.AUDIO, multiple = false, onPicked = editor::importMusic)
 
-    Box(modifier.fillMaxSize()) {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { Text(editor.projectInfo.name, maxLines = 1) },
-                    navigationIcon = {
-                        IconButton(onClick = pickVideos) { Icon(Icons.Filled.Add, contentDescription = "Video qo'shish") }
-                    },
-                    actions = {
-                        UndoRedoButtons(editor.history, editor::undo, editor::redo)
-                        ProjectsButton {
-                            editor.refreshProjects()
-                            showProjects = true
-                        }
-                        TextButton(
-                            onClick = editor::export,
-                            enabled = editor.state.clips.isNotEmpty() && editor.exportState == ExportState.Idle,
-                        ) { Text("Saqlash") }
-                    },
-                )
-            },
-        ) { padding ->
-            if (editor.state.clips.isEmpty()) {
-                EmptyState(Modifier.padding(padding), pickVideos)
-            } else {
-                Column(Modifier.padding(padding).fillMaxSize()) {
+    // Tanlangan element o'chirilsa — tanlovni tozalaymiz.
+    val state = editor.state
+    val current = selection
+    val valid = when (current) {
+        Selection.None -> true
+        is Selection.ClipItem -> state.clips.any { it.id == current.id }
+        is Selection.Overlay -> state.overlays.any { it.id == current.id }
+        Selection.Music -> state.music != null
+        is Selection.Voice -> state.voiceovers.any { it.id == current.id }
+    }
+    if (!valid) selection = Selection.None
+    fun select(newSelection: Selection) {
+        selection = newSelection
+        editor.selectedClipId = (newSelection as? Selection.ClipItem)?.id
+        editor.selectedOverlayId = (newSelection as? Selection.Overlay)?.id
+    }
+
+    PlatformBackHandler(enabled = true) {
+        when {
+            tool != null -> tool = null
+            selection != Selection.None -> select(Selection.None)
+            else -> onClose()
+        }
+    }
+
+    Box(modifier.fillMaxSize().background(CapCut.Background)) {
+        Column(Modifier.fillMaxSize()) {
+            EditorTopBar(
+                title = editor.projectInfo.name,
+                onClose = onClose,
+                onExport = editor::export,
+                exportEnabled = state.clips.isNotEmpty() && editor.exportState == ExportState.Idle,
+            )
+            Box(Modifier.fillMaxWidth().weight(1f).background(Color(0xFF0B0B0B)), contentAlignment = Alignment.Center) {
+                if (state.clips.isEmpty()) {
+                    EmptyProject(pickVideos)
+                } else {
                     Preview(editor)
-                    Transport(editor)
-                    TabRow(selectedTabIndex = panel) {
-                        panelTitles.forEachIndexed { index, title ->
-                            Tab(selected = panel == index, onClick = { panel = index }, text = { Text(title) })
+                }
+            }
+            TransportBar(editor.currentTime, state.totalDuration, editor.isPlaying, editor::togglePlayback) {
+                UndoRedoButtons(editor.history, editor::undo, editor::redo)
+            }
+
+            val activeTool = tool
+            if (activeTool != null) {
+                ToolPanel(activeTool.title, onDone = { tool = null }, modifier = Modifier.height(320.dp)) {
+                    val clip = (selection as? Selection.ClipItem)?.let { s -> state.clips.firstOrNull { it.id == s.id } }
+                    when (activeTool) {
+                        Tool.AUDIO -> AudioPanel(editor)
+                        Tool.TEXT -> TextToolPanel(editor) { id ->
+                            select(Selection.Overlay(id))
+                            tool = Tool.TEXT_EDIT
                         }
-                    }
-                    Column(
-                        Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        when (panel) {
-                            0 -> ClipsPanel(editor)
-                            1 -> AudioPanel(editor)
-                            2 -> TextPanel(editor)
-                            else -> FilterPanel(editor)
-                        }
+                        Tool.TEXT_EDIT -> state.overlays.firstOrNull { it.id == (selection as? Selection.Overlay)?.id }
+                            ?.let { TextEditPanel(editor, it) } ?: HintText("Matn tanlanmagan")
+                        Tool.FILTER -> FilterPanel(editor)
+                        Tool.SPEED -> clip?.let { SpeedPanel(editor, it) } ?: HintText("Klip tanlanmagan")
+                        Tool.TRANSITION -> state.clips.firstOrNull { it.id == transitionClipId }
+                            ?.let { TransitionPanel(editor, it) } ?: HintText("Klip tanlanmagan")
                     }
                 }
+            } else if (state.clips.isNotEmpty()) {
+                TimelineViewport(
+                    currentTime = editor.currentTime,
+                    duration = state.totalDuration,
+                    pixelsPerSecond = pixelsPerSecond,
+                    onSeek = editor::seek,
+                    onZoom = { factor -> pixelsPerSecond = (pixelsPerSecond * factor).coerceIn(12.dp, 260.dp) },
+                    modifier = Modifier.height(200.dp),
+                ) { scope ->
+                    MainTrack(
+                        scope = scope,
+                        editor = editor,
+                        selectedId = (selection as? Selection.ClipItem)?.id,
+                        onSelect = { select(Selection.ClipItem(it)) },
+                        onTransition = { id ->
+                            transitionClipId = id
+                            tool = Tool.TRANSITION
+                        },
+                        onAdd = pickVideos,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    TextTrack(scope, editor, (selection as? Selection.Overlay)?.id, onSelect = { select(Selection.Overlay(it)) }) {
+                        editor.addOverlay()
+                        editor.selectedOverlayId?.let { id -> select(Selection.Overlay(id)) }
+                        tool = Tool.TEXT_EDIT
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    AudioTrack(scope, editor, selection, onSelect = ::select, onAddMusic = pickMusic)
+                }
+                Toolbar(
+                    editor = editor,
+                    selection = selection,
+                    onDeselect = { select(Selection.None) },
+                    onTool = { tool = it },
+                    onTransition = { id ->
+                        transitionClipId = id
+                        tool = Tool.TRANSITION
+                    },
+                    onAddVideo = pickVideos,
+                    onReplaceMusic = pickMusic,
+                )
             }
         }
         if (editor.isImporting) BusyOverlay("Yuklanmoqda…")
         editor.subtitleProgress?.let { BusyOverlay("Subtitr yaratilmoqda… ${(it * 100).toInt()}%") }
         ExportDialog(editor.exportState, onShare = editor::share, onDismiss = editor::dismissExport)
         ErrorDialog(editor.errorMessage) { editor.errorMessage = null }
-        if (showProjects) {
-            ProjectsDialog(
-                current = editor.projectInfo,
-                projects = editor.projects,
-                onOpen = { editor.openProject(it); showProjects = false },
-                onNew = { editor.newProject(); showProjects = false },
-                onRename = editor::renameProject,
-                onDelete = editor::deleteProject,
-                onDismiss = { showProjects = false },
-            )
-        }
     }
 }
 
 @Composable
-private fun EmptyState(modifier: Modifier, onPick: () -> Unit) {
-    Column(
-        modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(Icons.Filled.VideoLibrary, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
-        Spacer(Modifier.height(16.dp))
-        Text("Montajni boshlash uchun video tanlang", style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(20.dp))
-        Button(onClick = onPick) { Text("Video qo'shish") }
+private fun EmptyProject(onPick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
+            Modifier
+                .size(96.dp)
+                .background(CapCut.Surface, RoundedCornerShape(20.dp))
+                .clickable(onClick = onPick),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Filled.Add, contentDescription = "Video qo'shish", modifier = Modifier.size(48.dp)) }
+        Text("Video qo'shish", style = MaterialTheme.typography.titleMedium)
+        HintText("Galereyadan bir yoki bir nechta video tanlang")
     }
 }
 
 @Composable
 private fun Preview(editor: MontajEditor) {
-    Box(Modifier.fillMaxWidth().height(330.dp).background(Color.Black), contentAlignment = Alignment.Center) {
-        Box(Modifier.aspectRatio(MontajState.WIDTH / MontajState.HEIGHT.toFloat())) {
-            PlayerSurface(editor.player, Modifier.fillMaxSize())
-            val transitionFrame = editor.transitionPreview
-            if (transitionFrame != null) {
-                // Pauzada o'tish effekti ustida: aniq kadr (matnlar ham ichida).
-                Image(transitionFrame, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
-                return@Box
+    Box(Modifier.fillMaxHeight().aspectRatio(MontajState.WIDTH / MontajState.HEIGHT.toFloat()).background(Color.Black)) {
+        PlayerSurface(editor.player, Modifier.fillMaxSize())
+        val transitionFrame = editor.transitionPreview
+        if (transitionFrame != null) {
+            // Pauzada o'tish effekti ustida: aniq kadr (matnlar ham ichida).
+            Image(transitionFrame, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+            return@Box
+        }
+        // Matnlar eksportdagi bilan bir xil funksiya orqali, kichraytirib chiziladi.
+        val time = editor.currentTime
+        val active = editor.state.overlays.filter { time >= it.start && time < it.end }
+        Canvas(Modifier.fillMaxSize()) {
+            val scale = size.width / MontajState.WIDTH
+            drawIntoCanvas { canvas ->
+                canvas.save()
+                canvas.scale(scale, scale)
+                active.forEach { editor.previewText.drawOverlay(canvas, it, MontajState.WIDTH.toFloat(), MontajState.HEIGHT.toFloat()) }
+                canvas.restore()
             }
-            // Matnlar eksportdagi bilan bir xil funksiya orqali, kichraytirib chiziladi.
-            val time = editor.currentTime
-            val active = editor.state.overlays.filter { time >= it.start && time < it.end }
-            Canvas(Modifier.fillMaxSize()) {
-                val scale = size.width / MontajState.WIDTH
-                drawIntoCanvas { canvas ->
-                    canvas.save()
-                    canvas.scale(scale, scale)
-                    active.forEach { editor.previewText.drawOverlay(canvas, it, MontajState.WIDTH.toFloat(), MontajState.HEIGHT.toFloat()) }
-                    canvas.restore()
+        }
+    }
+}
+
+// region Treklar
+
+@Composable
+private fun MainTrack(
+    scope: TimelineScope,
+    editor: MontajEditor,
+    selectedId: String?,
+    onSelect: (String) -> Unit,
+    onTransition: (String) -> Unit,
+    onAdd: () -> Unit,
+) {
+    val clips = editor.state.clips
+    val starts = editor.state.clipStarts
+    val total = editor.state.totalDuration
+    val secondsPerPx = 1.0 / with(LocalDensity.current) { scope.pixelsPerSecond.toPx() }
+    Box(Modifier.fillMaxWidth().height(58.dp)) {
+        clips.forEachIndexed { index, clip ->
+            val selected = clip.id == selectedId
+            ClipBlock(
+                clip = clip,
+                thumbnail = editor.thumbnails[clip.id],
+                selected = selected,
+                width = scope.width(clip.outputDuration),
+                modifier = Modifier.offset(x = scope.x(starts[index])),
+                onClick = { onSelect(clip.id) },
+            )
+            if (selected) {
+                TrimHandle(Modifier.offset(x = scope.x(starts[index]) - 14.dp)) { dxPx ->
+                    val delta = dxPx * secondsPerPx * clip.speed
+                    editor.updateClip(clip.id) { it.copy(trimStart = (it.trimStart + delta).coerceIn(0.0, it.trimEnd - Clip.MIN_LENGTH)) }
+                }
+                TrimHandle(Modifier.offset(x = scope.x(starts[index] + clip.outputDuration))) { dxPx ->
+                    val delta = dxPx * secondsPerPx * clip.speed
+                    editor.updateClip(clip.id) { it.copy(trimEnd = (it.trimEnd + delta).coerceIn(it.trimStart + Clip.MIN_LENGTH, it.durationSec)) }
+                }
+            }
+            if (index < clips.lastIndex) {
+                val active = clip.transition != TransitionKind.NONE
+                Box(
+                    Modifier
+                        .offset(x = scope.x(starts[index] + clip.outputDuration) - 11.dp, y = 18.dp)
+                        .size(22.dp)
+                        .background(if (active) CapCut.Accent else Color.White, RoundedCornerShape(4.dp))
+                        .clickable { onTransition(clip.id) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.SwapHoriz, contentDescription = "O'tish", tint = Color.Black, modifier = Modifier.size(16.dp))
                 }
             }
         }
+        Box(
+            Modifier
+                .offset(x = scope.x(total) + 10.dp, y = 5.dp)
+                .size(48.dp)
+                .background(Color.White, RoundedCornerShape(6.dp))
+                .clickable(onClick = onAdd),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Filled.Add, contentDescription = "Video qo'shish", tint = Color.Black) }
     }
 }
 
+/** Klip: kadrlar lentasi (thumbnail takrorlanadi), tanlanganda oq ramka. */
 @Composable
-private fun Transport(editor: MontajEditor) {
-    val total = editor.state.totalDuration
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = editor::togglePlayback) {
-            Icon(if (editor.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow, contentDescription = "Ijro")
-        }
-        Slider(
-            value = editor.currentTime.toFloat().coerceIn(0f, total.toFloat().coerceAtLeast(0.01f)),
-            onValueChange = { editor.seek(it.toDouble()) },
-            valueRange = 0f..total.toFloat().coerceAtLeast(0.01f),
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            "${Format.clock(editor.currentTime)} / ${Format.clock(total)}",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(start = 8.dp),
-        )
-    }
-}
-
-// region Kliplar
-
-@Composable
-private fun ClipsPanel(editor: MontajEditor) {
-    val clips = editor.state.clips
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        itemsIndexed(clips, key = { _, clip -> clip.id }) { index, clip ->
-            ClipCard(index + 1, clip, editor.thumbnails[clip.id], editor.selectedClipId == clip.id) { editor.selectedClipId = clip.id }
-        }
-    }
-    val index = clips.indexOfFirst { it.id == editor.selectedClipId }
-    val clip = clips.getOrNull(index)
-    if (clip == null) {
-        HintText("Tahrirlash uchun klipni tanlang")
-        return
-    }
-
-    SectionTitle("Qirqish")
-    LabeledSlider("Boshi", clip.trimStart.toFloat(), 0f..clip.durationSec.toFloat(), Format.seconds(clip.trimStart), { value ->
-        editor.updateClip(clip.id) { it.copy(trimStart = minOf(value.toDouble(), it.trimEnd - Clip.MIN_LENGTH)) }
-    })
-    LabeledSlider("Oxiri", clip.trimEnd.toFloat(), 0f..clip.durationSec.toFloat(), Format.seconds(clip.trimEnd), { value ->
-        editor.updateClip(clip.id) { it.copy(trimEnd = maxOf(value.toDouble(), it.trimStart + Clip.MIN_LENGTH)) }
-    })
-
-    SectionTitle("Tezlik")
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Clip.SPEEDS.forEach { speed ->
-            FilterChip(
-                selected = clip.speed == speed,
-                onClick = { editor.updateClip(clip.id) { it.copy(speed = speed) } },
-                label = { Text(Format.speed(speed)) },
-            )
-        }
-    }
-
-    if (index < clips.lastIndex) {
-        SectionTitle("Keyingi klipga o'tish")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TransitionKind.entries.forEach { kind ->
-                FilterChip(
-                    selected = clip.transition == kind,
-                    onClick = { editor.updateClip(clip.id) { it.copy(transition = kind) } },
-                    label = { Text(kind.title) },
-                )
-            }
-        }
-        if (clip.transition != TransitionKind.NONE) {
-            LabeledSlider("O'tish davomiyligi", clip.transitionDuration.toFloat(), 0.2f..1.5f, Format.seconds(clip.transitionDuration), { v ->
-                editor.updateClip(clip.id) { it.copy(transitionDuration = v.toDouble()) }
-            })
-            HintText("O'tishni ko'rish uchun pauzada kliplar chegarasiga suring. Tayyor videoda to'liq chiqadi.")
-        }
-    }
-
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { editor.moveClip(clip.id, -1) }, enabled = index > 0) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-            Text("Chapga")
-        }
-        OutlinedButton(onClick = { editor.moveClip(clip.id, 1) }, enabled = index < clips.lastIndex) {
-            Text("O'ngga")
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-        }
-        Spacer(Modifier.weight(1f))
-        IconButton(onClick = { editor.deleteClip(clip.id) }) {
-            Icon(Icons.Filled.Delete, contentDescription = "O'chirish", tint = MaterialTheme.colorScheme.error)
-        }
-    }
-}
-
-@Composable
-private fun ClipCard(number: Int, clip: Clip, thumbnail: ImageBitmap?, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(10.dp)
+private fun ClipBlock(clip: Clip, thumbnail: ImageBitmap?, selected: Boolean, width: Dp, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(4.dp)
     Box(
-        Modifier
-            .size(width = 72.dp, height = 110.dp)
+        modifier
+            .padding(vertical = 3.dp)
+            .width(width.coerceAtLeast(4.dp))
+            .height(52.dp)
             .clip(shape)
-            .border(3.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, shape)
-            .background(Color.DarkGray)
+            .background(CapCut.Track)
+            .border(if (selected) 2.dp else 0.dp, if (selected) Color.White else Color.Transparent, shape)
             .clickable(onClick = onClick),
     ) {
         if (thumbnail != null) {
-            Image(thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-        }
-        Column(
-            Modifier
-                .align(Alignment.BottomStart)
-                .padding(4.dp)
-                .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
-                .padding(horizontal = 4.dp, vertical = 2.dp),
-        ) {
-            Text("$number", style = MaterialTheme.typography.labelSmall)
-            Text(Format.seconds(clip.outputDuration), style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
-
-// endregion
-
-// region Ovoz
-
-@Composable
-private fun AudioPanel(editor: MontajEditor) {
-    val state = editor.state
-    val pickMusic = rememberMediaPicker(PickKind.AUDIO, multiple = false, onPicked = editor::importMusic)
-
-    SectionTitle("Videoning asl ovozi")
-    VolumeRow(state.originalVolume, editor::setOriginalVolume)
-
-    SectionTitle("Fon musiqasi")
-    val music = state.music
-    if (music != null) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.MusicNote, contentDescription = null)
-            Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
-                Text(music.name, maxLines = 1)
-                HintText(Format.clock(music.durationSec))
-            }
-            IconButton(onClick = editor::removeMusic) {
-                Icon(Icons.Filled.Delete, contentDescription = "Olib tashlash", tint = MaterialTheme.colorScheme.error)
-            }
-        }
-        VolumeRow(state.musicVolume, editor::setMusicVolume)
-        HintText("Musiqa qisqa bo'lsa takrorlanadi.")
-    }
-    OutlinedButton(onClick = pickMusic) { Text(if (music == null) "Musiqa tanlash" else "Boshqa musiqa") }
-
-    VoiceoverSection(editor)
-}
-
-@Composable
-private fun VoiceoverSection(editor: MontajEditor) {
-    val requestMicrophone = rememberMicrophonePermission { granted ->
-        if (granted) {
-            editor.startRecording()
-        } else {
-            editor.errorMessage = "Ovoz yozish uchun mikrofonga ruxsat bering"
-        }
-    }
-    SectionTitle("Ovoz yozish (voiceover)")
-    if (editor.isRecording) {
-        Button(
-            onClick = editor::stopRecording,
-            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-        ) {
-            Icon(Icons.Filled.Stop, contentDescription = null)
-            Text("To'xtatish")
-        }
-        HintText("Yozilmoqda… Video ijro etilyapti — ustiga gapiring.")
-    } else {
-        OutlinedButton(onClick = requestMicrophone) {
-            Icon(Icons.Filled.Mic, contentDescription = null)
-            Text("Joriy joydan yozish")
-        }
-        HintText("Yozuv videoning joriy soniyasidan boshlanadi. Quloqchin bilan yozsangiz, video ovozi aralashmaydi.")
-    }
-    editor.state.voiceovers.forEachIndexed { index, voice ->
-        Column(
-            Modifier.fillMaxWidth().background(Color.Gray.copy(alpha = 0.12f), RoundedCornerShape(10.dp)).padding(12.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Mic, contentDescription = null)
-                Text(
-                    "Yozuv ${index + 1}: ${Format.seconds(voice.startAt)} dan, ${Format.seconds(voice.duration)}",
-                    modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
-                )
-                IconButton(onClick = { editor.deleteVoiceover(voice.id) }) {
-                    Icon(Icons.Filled.Delete, contentDescription = "O'chirish", tint = MaterialTheme.colorScheme.error)
+            val frameWidth = 40.dp
+            val count = ceil(width / frameWidth).toInt().coerceIn(1, 200)
+            Row(Modifier.fillMaxSize().clipToBounds()) {
+                repeat(count) {
+                    Image(thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.width(frameWidth).fillMaxHeight())
                 }
             }
-            VolumeRow(voice.volume) { volume -> editor.updateVoiceover(voice.id) { it.copy(volume = volume) } }
         }
+        if (clip.speed != 1.0) {
+            Text(
+                com.jas.montaj.core.Format.speed(clip.speed),
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.align(Alignment.TopStart).padding(3.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(3.dp)).padding(horizontal = 3.dp),
+            )
+        }
+        Text(
+            com.jas.montaj.core.Format.seconds(clip.outputDuration),
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(3.dp).background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(3.dp)).padding(horizontal = 3.dp),
+        )
     }
 }
 
+/** Klip chetidagi oq tutqich: tortib qirqiladi. */
 @Composable
-private fun VolumeRow(volume: Float, onChange: (Float) -> Unit) {
-    LabeledSlider(
-        title = "Balandlik",
-        value = volume,
-        range = 0f..1f,
-        valueText = Format.percent(volume.toDouble()),
-        onChange = onChange,
-        leading = {
-            IconButton(onClick = { onChange(if (volume > 0f) 0f else 1f) }) {
-                Icon(
-                    if (volume > 0f) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                    contentDescription = "Ovozni o'chirish",
-                )
-            }
-        },
-    )
+internal fun TrimHandle(modifier: Modifier, height: Dp = 52.dp, onDrag: (Float) -> Unit) {
+    val drag by rememberUpdatedState(onDrag)
+    Box(
+        modifier
+            .padding(vertical = 3.dp)
+            .width(14.dp)
+            .height(height)
+            .background(Color.White, RoundedCornerShape(3.dp))
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures { change, amount ->
+                    change.consume()
+                    drag(amount)
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) { Box(Modifier.width(2.dp).height(16.dp).background(Color.Black)) }
 }
 
-// endregion
-
-// region Matn
-
 @Composable
-private fun TextPanel(editor: MontajEditor) {
-    val state = editor.state
-    var showAuto by remember { mutableStateOf(false) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = editor::addOverlay) { Text("Matn qo'shish") }
-        OutlinedButton(onClick = { showAuto = true }) { Text("Avto-subtitr") }
-    }
-    if (showAuto) AutoSubtitleDialog(editor) { showAuto = false }
-    if (state.overlays.isEmpty()) {
-        HintText("Matn joriy vaqtdan boshlab 3 soniya ko'rinadi. Vaqtini keyin o'zgartirish mumkin.")
-    }
-    state.overlays.forEach { overlay ->
-        val selected = overlay.id == editor.selectedOverlayId
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Gray.copy(alpha = 0.15f))
-                .clickable { editor.selectedOverlayId = if (selected) null else overlay.id }
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(overlay.text.ifBlank { "(bo'sh)" }, maxLines = 1)
-            HintText("${Format.seconds(overlay.start)} – ${Format.seconds(overlay.end)} · ${overlay.position.title}")
+private fun TextTrack(scope: TimelineScope, editor: MontajEditor, selectedId: String?, onSelect: (String) -> Unit, onAdd: () -> Unit) {
+    val overlays = editor.state.overlays
+    val secondsPerPx = 1.0 / with(LocalDensity.current) { scope.pixelsPerSecond.toPx() }
+    Box(Modifier.fillMaxWidth().height(30.dp)) {
+        if (overlays.isEmpty()) {
+            TrackHint("+ Matn qo'shish", Modifier.offset(x = scope.x(0.0)), onAdd)
+        }
+        overlays.forEach { overlay ->
+            val selected = overlay.id == selectedId
+            TrackBar(
+                label = overlay.text.ifBlank { "Matn" },
+                color = CapCut.TextTrack,
+                icon = Icons.Filled.TextFields,
+                selected = selected,
+                modifier = Modifier.offset(x = scope.x(overlay.start)),
+                width = scope.width(overlay.end - overlay.start),
+                onClick = { onSelect(overlay.id) },
+            )
             if (selected) {
-                val maxTime = state.totalDuration.coerceAtLeast(0.5).toFloat()
-                OutlinedTextField(
-                    value = overlay.text,
-                    onValueChange = { text -> editor.updateOverlay(overlay.id) { it.copy(text = text) } },
-                    label = { Text("Matn") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                LabeledSlider("Boshlanishi", overlay.start.toFloat(), 0f..maxTime, Format.seconds(overlay.start), { v ->
-                    editor.updateOverlay(overlay.id) { it.copy(start = minOf(v.toDouble(), it.end - 0.2)) }
-                })
-                LabeledSlider("Tugashi", overlay.end.toFloat(), 0f..maxTime, Format.seconds(overlay.end), { v ->
-                    editor.updateOverlay(overlay.id) { it.copy(end = maxOf(v.toDouble(), it.start + 0.2)) }
-                })
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    TextPosition.entries.forEach { position ->
-                        FilterChip(
-                            selected = overlay.position == position,
-                            onClick = { editor.updateOverlay(overlay.id) { it.copy(position = position) } },
-                            label = { Text(position.title) },
-                        )
-                    }
+                TrimHandle(Modifier.offset(x = scope.x(overlay.start) - 14.dp), height = 24.dp) { dx ->
+                    editor.updateOverlay(overlay.id) { it.copy(start = (it.start + dx * secondsPerPx).coerceIn(0.0, it.end - 0.2)) }
                 }
-                LabeledSlider("O'lcham", overlay.fontSize, 36f..140f, "${overlay.fontSize.toInt()}", { v ->
-                    editor.updateOverlay(overlay.id) { it.copy(fontSize = v) }
-                })
-                ColorPaletteRow("Rang", overlay.color) { color -> editor.updateOverlay(overlay.id) { it.copy(color = color) } }
-                SwitchRow("Orqa fon (subtitr uslubi)", overlay.hasBackground) { on ->
-                    editor.updateOverlay(overlay.id) { it.copy(hasBackground = on) }
-                }
-                TextButton(onClick = { editor.deleteOverlay(overlay.id) }) {
-                    Text("Matnni o'chirish", color = MaterialTheme.colorScheme.error)
+                TrimHandle(Modifier.offset(x = scope.x(overlay.end)), height = 24.dp) { dx ->
+                    editor.updateOverlay(overlay.id) { it.copy(end = (it.end + dx * secondsPerPx).coerceAtLeast(it.start + 0.2)) }
                 }
             }
         }
@@ -484,75 +402,122 @@ private fun TextPanel(editor: MontajEditor) {
 }
 
 @Composable
-private fun AutoSubtitleDialog(editor: MontajEditor, onDismiss: () -> Unit) {
-    var key by remember { mutableStateOf(editor.settings.openAiKey) }
-    var language by remember { mutableStateOf(editor.settings.subtitleLanguage) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Avto-subtitr") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                HintText("Kliplardagi nutq OpenAI Whisper orqali matnga aylantiriladi va vaqtlari bilan subtitr qo'shiladi.")
-                OutlinedTextField(
-                    value = key,
-                    onValueChange = { key = it },
-                    label = { Text("OpenAI API kaliti") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                HintText("Kalit faqat shu telefonda saqlanadi. platform.openai.com → API keys.")
-                Text("Til", style = MaterialTheme.typography.bodyMedium)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Transcriber.languages.forEach { (code, title) ->
-                        FilterChip(selected = language == code, onClick = { language = code }, label = { Text(title) })
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                editor.saveSettings(editor.settings.copy(openAiKey = key.trim(), subtitleLanguage = language))
-                onDismiss()
-                editor.generateSubtitles()
-            }) { Text("Boshlash") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Bekor qilish") } },
-    )
+private fun AudioTrack(scope: TimelineScope, editor: MontajEditor, selection: Selection, onSelect: (Selection) -> Unit, onAddMusic: () -> Unit) {
+    val state = editor.state
+    Box(Modifier.fillMaxWidth().height(30.dp)) {
+        val music = state.music
+        if (music == null && state.voiceovers.isEmpty()) {
+            TrackHint("+ Musiqa qo'shish", Modifier.offset(x = scope.x(0.0)), onAddMusic)
+        }
+        if (music != null) {
+            TrackBar(
+                label = music.name,
+                color = CapCut.AudioTrack,
+                icon = Icons.Filled.MusicNote,
+                selected = selection == Selection.Music,
+                modifier = Modifier.offset(x = scope.x(0.0)),
+                width = scope.width(state.totalDuration),
+                onClick = { onSelect(Selection.Music) },
+            )
+        }
+        state.voiceovers.forEachIndexed { index, voice ->
+            TrackBar(
+                label = "Ovoz ${index + 1}",
+                color = CapCut.VoiceTrack,
+                icon = Icons.Filled.Mic,
+                selected = selection == Selection.Voice(voice.id),
+                modifier = Modifier.offset(x = scope.x(voice.startAt)),
+                width = scope.width(voice.duration),
+                onClick = { onSelect(Selection.Voice(voice.id)) },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun TrackBar(
+    label: String,
+    color: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    selected: Boolean,
+    modifier: Modifier,
+    width: Dp,
+    height: Dp = 24.dp,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(4.dp)
+    Row(
+        modifier
+            .padding(vertical = 3.dp)
+            .width(width.coerceAtLeast(6.dp))
+            .height(height)
+            .clip(shape)
+            .background(color.copy(alpha = 0.85f))
+            .border(if (selected) 2.dp else 0.dp, if (selected) Color.White else Color.Transparent, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(12.dp), tint = Color.White)
+        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1, fontWeight = FontWeight.Medium)
+    }
 }
 
 // endregion
 
-// region Filtr
+// region Pastki asboblar
 
 @Composable
-private fun FilterPanel(editor: MontajEditor) {
-    val source = editor.state.clips.firstOrNull()?.let { editor.thumbnails[it.id] }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        VideoFilter.entries.forEach { filter ->
-            val selected = editor.state.filter == filter
-            val preview = remember(source, filter) {
-                source?.let { image -> filter.matrix()?.let { Graphics.withColorMatrix(image, it) } ?: image }
+private fun Toolbar(
+    editor: MontajEditor,
+    selection: Selection,
+    onDeselect: () -> Unit,
+    onTool: (Tool) -> Unit,
+    onTransition: (String) -> Unit,
+    onAddVideo: () -> Unit,
+    onReplaceMusic: () -> Unit,
+) {
+    when (selection) {
+        Selection.None -> BottomToolbar {
+            ToolButton(Icons.Filled.VideoLibrary, "Video") { onAddVideo() }
+            ToolButton(Icons.Filled.MusicNote, "Ovoz") { onTool(Tool.AUDIO) }
+            ToolButton(Icons.Filled.TextFields, "Matn") { onTool(Tool.TEXT) }
+            ToolButton(Icons.Filled.FilterVintage, "Filtrlar") { onTool(Tool.FILTER) }
+            ToolButton(Icons.Filled.ContentCut, "Bo'lish") {
+                if (!editor.splitAtPlayhead()) editor.errorMessage = "Kursorni klip o'rtasiga qo'ying"
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { editor.setFilter(filter) }) {
-                val shape = RoundedCornerShape(10.dp)
-                Box(
-                    Modifier
-                        .size(width = 76.dp, height = 100.dp)
-                        .clip(shape)
-                        .border(3.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Transparent, shape)
-                        .background(Color.DarkGray),
-                ) {
-                    if (preview != null) {
-                        Image(preview, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-                    }
+        }
+        is Selection.ClipItem -> {
+            val clips = editor.state.clips
+            val index = clips.indexOfFirst { it.id == selection.id }
+            BottomToolbar(onBack = onDeselect) {
+                ToolButton(Icons.Filled.ContentCut, "Bo'lish") {
+                    if (!editor.splitAtPlayhead()) editor.errorMessage = "Kursorni klip o'rtasiga qo'ying"
                 }
-                Text(
-                    filter.title,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                )
+                ToolButton(Icons.Filled.Timer, "Tezlik") { onTool(Tool.SPEED) }
+                ToolButton(Icons.Filled.SwapHoriz, "O'tish", enabled = index in 0 until clips.lastIndex) { onTransition(selection.id) }
+                ToolButton(Icons.AutoMirrored.Filled.VolumeUp, "Ovoz") { onTool(Tool.AUDIO) }
+                ToolButton(Icons.Filled.FilterVintage, "Filtr") { onTool(Tool.FILTER) }
+                ToolButton(Icons.AutoMirrored.Filled.ArrowBack, "Chapga", enabled = index > 0) { editor.moveClip(selection.id, -1) }
+                ToolButton(Icons.AutoMirrored.Filled.ArrowForward, "O'ngga", enabled = index < clips.lastIndex) { editor.moveClip(selection.id, 1) }
+                ToolButton(Icons.Filled.ContentCopy, "Nusxa") { editor.duplicateClip(selection.id) }
+                ToolButton(Icons.Filled.Delete, "O'chirish", tint = MaterialTheme.colorScheme.error) { editor.deleteClip(selection.id) }
             }
+        }
+        is Selection.Overlay -> BottomToolbar(onBack = onDeselect) {
+            ToolButton(Icons.Filled.Edit, "Tahrirlash") { onTool(Tool.TEXT_EDIT) }
+            ToolButton(Icons.Filled.ContentCopy, "Nusxa") { editor.duplicateOverlay(selection.id) }
+            ToolButton(Icons.Filled.Delete, "O'chirish", tint = MaterialTheme.colorScheme.error) { editor.deleteOverlay(selection.id) }
+        }
+        Selection.Music -> BottomToolbar(onBack = onDeselect) {
+            ToolButton(Icons.AutoMirrored.Filled.VolumeUp, "Balandlik") { onTool(Tool.AUDIO) }
+            ToolButton(Icons.Filled.SwapHoriz, "Almashtirish") { onReplaceMusic() }
+            ToolButton(Icons.Filled.Delete, "O'chirish", tint = MaterialTheme.colorScheme.error) { editor.removeMusic() }
+        }
+        is Selection.Voice -> BottomToolbar(onBack = onDeselect) {
+            ToolButton(Icons.AutoMirrored.Filled.VolumeUp, "Balandlik") { onTool(Tool.AUDIO) }
+            ToolButton(Icons.Filled.Delete, "O'chirish", tint = MaterialTheme.colorScheme.error) { editor.deleteVoiceover(selection.id) }
         }
     }
 }
