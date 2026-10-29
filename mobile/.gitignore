@@ -1,0 +1,9 @@
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+iosApp/*.xcodeproj
+iosApp/build/
+iosApp/Support/Info.plist

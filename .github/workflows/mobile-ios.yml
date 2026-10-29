@@ -1,0 +1,87 @@
+name: Mobile (KMP) — iOS IPA
+
+on:
+  push:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Kotlin/Native toolchain keshi
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-kotlin-2.1.0
+
+      - name: Umumiy Kotlin framework (Shared)
+        run: gradle --no-daemon :shared:linkReleaseFrameworkIosArm64
+
+      - name: Xcode loyihasi
+        working-directory: mobile/iosApp
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Ilovani yig'ish (imzosiz)
+        working-directory: mobile/iosApp
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Montaj.xcodeproj \
+            -scheme Montaj \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: .ipa yaratish
+        working-directory: mobile/iosApp
+        run: |
+          mkdir -p build/Payload
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/Montaj.app build/Payload/
+          cd build && zip -qry Montaj.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Montaj-ipa
+          path: mobile/iosApp/build/Montaj.ipa
+          retention-days: 30
+
+      - name: Release'ga joylash
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: montaj-ios-latest
+          name: Montaj (iOS) — oxirgi versiya
+          body: Oxirgi yig'ilgan IPA. Windows'da Sideloadly orqali iPhone'ga o'rnating.
+          prerelease: true
+          files: mobile/iosApp/build/Montaj.ipa

@@ -1,0 +1,62 @@
+name: Mobile (KMP) — Android APK
+
+on:
+  push:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      # Har safar bir xil imzo: yangi APK eskisining ustiga o'rnatiladi.
+      - name: Imzo kalitini keshdan olish
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: montaj-debug-keystore-v1
+
+      - name: APK yig'ish
+        run: gradle --no-daemon :androidApp:assembleRelease
+
+      - name: APK nomini o'zgartirish
+        run: cp androidApp/build/outputs/apk/release/androidApp-release.apk Montaj.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Montaj-apk
+          path: mobile/Montaj.apk
+          retention-days: 30
+
+      - name: Release'ga joylash
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: montaj-android-latest
+          name: Montaj (Android) — oxirgi versiya
+          body: Oxirgi yig'ilgan APK. Telefonda Montaj.apk ni oching va o'rnating.
+          prerelease: true
+          files: mobile/Montaj.apk

@@ -1,0 +1,41 @@
+name: Montaj
+options:
+  bundleIdPrefix: com.jas
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "2.0.0"
+    CURRENT_PROJECT_VERSION: "2"
+targets:
+  Montaj:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: Resources
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Montaj
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        CADisableMinimumFrameDurationOnPhone: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSPhotoLibraryAddUsageDescription: "Tayyor videoni galereyangizga saqlash uchun kerak."
+        NSPhotoLibraryUsageDescription: "Montaj uchun videolarni tanlash uchun kerak."
+        NSMicrophoneUsageDescription: "Videoga ovoz yozish uchun kerak."
+        NSSpeechRecognitionUsageDescription: "Nutqdan avtomatik subtitr yaratish uchun kerak."
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jas.montaj
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        FRAMEWORK_SEARCH_PATHS: $(SRCROOT)/../shared/build/bin/iosArm64/releaseFramework
+        OTHER_LDFLAGS: "-framework Shared -lsqlite3"
