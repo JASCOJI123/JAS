@@ -2,19 +2,9 @@
 
 package com.jas.montaj.platform
 
+import platform.Foundation.*
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.Foundation.NSDate
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSSearchPathForDirectoriesInDomains
-import platform.Foundation.NSString
-import platform.Foundation.NSUTF8StringEncoding
-import platform.Foundation.NSUserDomainMask
-import platform.Foundation.create
-import platform.Foundation.stringWithContentsOfFile
-import platform.Foundation.timeIntervalSince1970
-import platform.Foundation.writeToFile
 
 actual fun storage(): Storage = IosStorage
 

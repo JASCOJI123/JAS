@@ -2,48 +2,19 @@
 
 package com.jas.montaj.platform
 
+import platform.AVFoundation.*
+import platform.CoreGraphics.*
+import platform.CoreImage.*
+import platform.CoreMedia.*
+import platform.UIKit.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ExperimentalForeignApi
-import platform.AVFoundation.AVAsynchronousCIImageFilteringRequest
-import platform.AVFoundation.AVLayerVideoGravityResizeAspect
-import platform.AVFoundation.AVMutableAudioMix
-import platform.AVFoundation.AVMutableAudioMixInputParameters
-import platform.AVFoundation.AVMutableComposition
-import platform.AVFoundation.AVMutableCompositionTrack
-import platform.AVFoundation.AVMediaTypeAudio
-import platform.AVFoundation.AVMediaTypeVideo
-import platform.AVFoundation.AVPlayer
-import platform.AVFoundation.AVPlayerItem
-import platform.AVFoundation.AVPlayerLayer
-import platform.AVFoundation.AVVideoComposition
-import platform.AVFoundation.AVAssetTrack
-import platform.AVFoundation.currentTime
-import platform.AVFoundation.duration
-import platform.AVFoundation.pause
-import platform.AVFoundation.play
-import platform.AVFoundation.preferredTransform
-import platform.AVFoundation.rate
-import platform.AVFoundation.replaceCurrentItemWithPlayerItem
-import platform.AVFoundation.seekToTime
-import platform.AVFoundation.timeRange
-import platform.AVFoundation.tracksWithMediaType
-import platform.AVFoundation.volume
-import platform.CoreGraphics.CGRectMake
-import platform.CoreImage.CIFilter
-import platform.CoreImage.CIVector
-import platform.CoreImage.filterWithName
-import platform.CoreMedia.CMTime
-import platform.CoreMedia.CMTimeGetSeconds
-import platform.CoreMedia.CMTimeMake
-import platform.CoreMedia.CMTimeMakeWithSeconds
-import platform.CoreMedia.CMTimeRangeMake
-import platform.CoreMedia.kCMPersistentTrackID_Invalid
-import platform.UIKit.UIColor
-import platform.UIKit.UIView
+import kotlinx.cinterop.interpretObjCPointer
+import kotlinx.cinterop.objcPtr
 
 /** Montaj ko'rish oynasi: kliplar bitta AVMutableComposition'ga yig'ilib, AVPlayer'da ijro etiladi. */
 internal class IosPreviewPlayer : PreviewPlayer {
@@ -86,21 +57,23 @@ internal class IosPreviewPlayer : PreviewPlayer {
     private fun colorMatrixComposition(composition: AVMutableComposition, m: FloatArray): AVVideoComposition =
         AVVideoComposition.videoCompositionWithAsset(composition) { request: AVAsynchronousCIImageFilteringRequest? ->
             if (request != null) {
+                val source = request.sourceImage
                 val filter = CIFilter.filterWithName("CIColorMatrix")
-                if (filter == null) {
-                    request.finishWithImage(request.sourceImage, context = null)
-                } else {
-                    filter.setValue(request.sourceImage, forKey = "inputImage")
-                    filter.setValue(vector(m, 0), forKey = "inputRVector")
-                    filter.setValue(vector(m, 1), forKey = "inputGVector")
-                    filter.setValue(vector(m, 2), forKey = "inputBVector")
-                    filter.setValue(vector(m, 3), forKey = "inputAVector")
-                    filter.setValue(
+                val output: CIImage? = filter?.let {
+                    it.setValue(source, forKey = "inputImage")
+                    it.setValue(vector(m, 0), forKey = "inputRVector")
+                    it.setValue(vector(m, 1), forKey = "inputGVector")
+                    it.setValue(vector(m, 2), forKey = "inputBVector")
+                    it.setValue(vector(m, 3), forKey = "inputAVector")
+                    it.setValue(
                         CIVector.vectorWithX(m[4] / 255.0, Y = m[9] / 255.0, Z = m[14] / 255.0, W = m[19] / 255.0),
                         forKey = "inputBiasVector",
                     )
-                    request.finishWithImage(filter.outputImage ?: request.sourceImage, context = null)
+                    it.outputImage
                 }
+                // AVFoundation CIImage'ni "oldindan e'lon qilingan" tur sifatida ko'radi — ko'rsatkich orqali o'tkazamiz.
+                val result = output?.let { interpretObjCPointer<objcnames.classes.CIImage>(it.objcPtr()) } ?: source
+                request.finishWithImage(result, context = null)
             }
         }
 
@@ -157,7 +130,7 @@ internal object CompositionFactory {
             }
         }
         val mix = AVMutableAudioMix()
-        mix.inputParameters = parameters
+        mix.setInputParameters(parameters)
         return BuiltComposition(composition, mix, cursor)
     }
 

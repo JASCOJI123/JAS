@@ -36,16 +36,19 @@ actual fun rememberMediaPicker(kind: PickKind, multiple: Boolean, onPicked: (Lis
     return when (kind) {
         PickKind.AUDIO -> {
             val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> deliver(listOfNotNull(uri)) }
-            { launcher.launch("audio/*") }
+            val open: () -> Unit = { launcher.launch("audio/*") }
+            open
         }
         else -> {
             val type = if (kind == PickKind.VIDEO) ActivityResultContracts.PickVisualMedia.VideoOnly else ActivityResultContracts.PickVisualMedia.ImageOnly
             if (multiple) {
                 val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris -> deliver(uris) }
-                { launcher.launch(PickVisualMediaRequest(type)) }
+                val open: () -> Unit = { launcher.launch(PickVisualMediaRequest(type)) }
+                open
             } else {
                 val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> deliver(listOfNotNull(uri)) }
-                { launcher.launch(PickVisualMediaRequest(type)) }
+                val open: () -> Unit = { launcher.launch(PickVisualMediaRequest(type)) }
+                open
             }
         }
     }

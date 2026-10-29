@@ -2,6 +2,11 @@
 
 package com.jas.montaj.platform
 
+import platform.AVFoundation.*
+import platform.CoreGraphics.*
+import platform.CoreMedia.*
+import platform.Foundation.*
+import platform.UIKit.*
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.cinterop.BetaInteropApi
@@ -14,41 +19,6 @@ import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
-import platform.AVFoundation.AVAssetImageGenerator
-import platform.AVFoundation.AVAssetTrack
-import platform.AVFoundation.AVMediaTypeAudio
-import platform.AVFoundation.AVMediaTypeVideo
-import platform.AVFoundation.AVURLAsset
-import platform.AVFoundation.duration
-import platform.AVFoundation.naturalSize
-import platform.AVFoundation.preferredTransform
-import platform.AVFoundation.tracksWithMediaType
-import platform.CoreGraphics.CGBitmapContextCreate
-import platform.CoreGraphics.CGColorSpaceCreateDeviceRGB
-import platform.CoreGraphics.CGColorSpaceRelease
-import platform.CoreGraphics.CGContextDrawImage
-import platform.CoreGraphics.CGContextRelease
-import platform.CoreGraphics.CGImageAlphaInfo
-import platform.CoreGraphics.CGImageGetHeight
-import platform.CoreGraphics.CGImageGetWidth
-import platform.CoreGraphics.CGImageRef
-import platform.CoreGraphics.CGImageRelease
-import platform.CoreGraphics.CGRectMake
-import platform.CoreGraphics.CGSizeApplyAffineTransform
-import platform.CoreGraphics.CGSizeMake
-import platform.CoreGraphics.kCGBitmapByteOrder32Big
-import platform.CoreMedia.CMTimeGetSeconds
-import platform.CoreMedia.CMTimeMake
-import platform.CoreMedia.CMTimeMakeWithSeconds
-import platform.Foundation.NSDocumentDirectory
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSSearchPathForDirectoriesInDomains
-import platform.Foundation.NSURL
-import platform.Foundation.NSUserDomainMask
-import platform.UIKit.UIActivityViewController
-import platform.UIKit.UIApplication
-import platform.UIKit.UIImage
-import platform.UIKit.UIViewController
 import kotlin.math.abs
 
 actual fun mediaBackend(): MediaBackend = IosMediaBackend

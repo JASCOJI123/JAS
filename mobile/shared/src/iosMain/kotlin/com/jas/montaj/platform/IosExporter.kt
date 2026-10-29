@@ -2,6 +2,11 @@
 
 package com.jas.montaj.platform
 
+import platform.AVFoundation.*
+import platform.CoreMedia.*
+import platform.CoreVideo.*
+import platform.Foundation.*
+import platform.Photos.*
 import androidx.compose.ui.graphics.asSkiaBitmap
 import com.jas.montaj.core.newId
 import kotlinx.cinterop.BetaInteropApi
@@ -22,46 +27,6 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ImageInfo
-import platform.AVFoundation.AVAssetExportPresetHighestQuality
-import platform.AVFoundation.AVAssetExportSession
-import platform.AVFoundation.AVAssetExportSessionStatusCompleted
-import platform.AVFoundation.AVAssetTrack
-import platform.AVFoundation.AVAssetWriter
-import platform.AVFoundation.AVAssetWriterInput
-import platform.AVFoundation.AVAssetWriterInputPixelBufferAdaptor
-import platform.AVFoundation.AVAssetWriterStatusCompleted
-import platform.AVFoundation.AVAudioTimePitchAlgorithmSpectral
-import platform.AVFoundation.AVFileTypeMPEG4
-import platform.AVFoundation.AVMediaTypeAudio
-import platform.AVFoundation.AVMediaTypeVideo
-import platform.AVFoundation.AVMutableAudioMix
-import platform.AVFoundation.AVMutableAudioMixInputParameters
-import platform.AVFoundation.AVMutableComposition
-import platform.AVFoundation.AVVideoCodecKey
-import platform.AVFoundation.AVVideoCodecTypeH264
-import platform.AVFoundation.AVVideoHeightKey
-import platform.AVFoundation.AVVideoWidthKey
-import platform.AVFoundation.duration
-import platform.AVFoundation.tracksWithMediaType
-import platform.CoreMedia.CMTimeGetSeconds
-import platform.CoreMedia.CMTimeMake
-import platform.CoreMedia.CMTimeRangeMake
-import platform.CoreMedia.kCMPersistentTrackID_Invalid
-import platform.CoreVideo.CVPixelBufferGetBaseAddress
-import platform.CoreVideo.CVPixelBufferGetBytesPerRow
-import platform.CoreVideo.CVPixelBufferLockBaseAddress
-import platform.CoreVideo.CVPixelBufferPoolCreatePixelBuffer
-import platform.CoreVideo.CVPixelBufferRefVar
-import platform.CoreVideo.CVPixelBufferRelease
-import platform.CoreVideo.CVPixelBufferUnlockBaseAddress
-import platform.CoreVideo.kCVPixelFormatType_32BGRA
-import platform.Foundation.NSFileManager
-import platform.Foundation.NSURL
-import platform.Photos.PHAccessLevelAddOnly
-import platform.Photos.PHAssetChangeRequest
-import platform.Photos.PHAuthorizationStatusAuthorized
-import platform.Photos.PHAuthorizationStatusLimited
-import platform.Photos.PHPhotoLibrary
 import platform.posix.memcpy
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -171,24 +136,15 @@ internal object IosExporter {
             val track = if (segment.loop) {
                 CompositionFactory.insertLooped(composition, segment.path, videoDuration)
             } else {
-                val asset = IosMediaBackend.asset(segment.path)
-                val source = asset.tracksWithMediaType(AVMediaTypeAudio).firstOrNull() as? AVAssetTrack ?: continue
-                val available = (videoDuration - segment.startAt) * segment.speed
-                val length = minOf(segment.sourceEnd - segment.sourceStart, available)
-                if (length <= 0.01) continue
-                composition.addMutableTrackWithMediaType(AVMediaTypeAudio, preferredTrackID = kCMPersistentTrackID_Invalid)?.also { track ->
-                    track.insertTimeRange(CMTimeRangeMake(time(segment.sourceStart), time(length)), ofTrack = source, atTime = time(segment.startAt), error = null)
-                    if (segment.speed != 1.0) {
-                        track.scaleTimeRange(CMTimeRangeMake(time(segment.startAt), time(length)), toDuration = time(length / segment.speed))
-                    }
-                }
-            } ?: continue
+                insertSegment(composition, segment, videoDuration)
+            }
+            if (track == null) continue
             parameters += AVMutableAudioMixInputParameters.audioMixInputParametersWithTrack(track).apply {
                 setVolume(segment.volume, atTime = time(0.0))
             }
         }
         val mix = AVMutableAudioMix()
-        mix.inputParameters = parameters
+        mix.setInputParameters(parameters)
 
         val session = AVAssetExportSession(asset = composition, presetName = AVAssetExportPresetHighestQuality)
         session.outputURL = NSURL.fileURLWithPath(outputPath)
@@ -204,6 +160,20 @@ internal object IosExporter {
                 }
             }
         }
+    }
+
+    private fun insertSegment(composition: AVMutableComposition, segment: AudioSegment, videoDuration: Double): AVMutableCompositionTrack? {
+        val asset = IosMediaBackend.asset(segment.path)
+        val source = asset.tracksWithMediaType(AVMediaTypeAudio).firstOrNull() as? AVAssetTrack ?: return null
+        val available = (videoDuration - segment.startAt) * segment.speed
+        val length = minOf(segment.sourceEnd - segment.sourceStart, available)
+        if (length <= 0.01) return null
+        val track = composition.addMutableTrackWithMediaType(AVMediaTypeAudio, preferredTrackID = kCMPersistentTrackID_Invalid) ?: return null
+        track.insertTimeRange(CMTimeRangeMake(time(segment.sourceStart), time(length)), ofTrack = source, atTime = time(segment.startAt), error = null)
+        if (segment.speed != 1.0) {
+            track.scaleTimeRange(CMTimeRangeMake(time(segment.startAt), time(length)), toDuration = time(length / segment.speed))
+        }
+        return track
     }
 
     private suspend fun saveToPhotos(path: String) {
