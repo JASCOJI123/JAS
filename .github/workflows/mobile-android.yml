@@ -55,8 +55,8 @@ jobs:
       - name: Release'ga joylash
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: montaj-android-latest
-          name: Montaj (Android) — oxirgi versiya
+          tag_name: montaj-v2-android-latest
+          name: Montaj v2 (Android, sinov) — oxirgi versiya
           body: Oxirgi yig'ilgan APK. Telefonda Montaj.apk ni oching va o'rnating.
           prerelease: true
           files: mobile/Montaj.apk

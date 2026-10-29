@@ -80,8 +80,8 @@ jobs:
       - name: Release'ga joylash
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: montaj-ios-latest
-          name: Montaj (iOS) — oxirgi versiya
+          tag_name: montaj-v2-ios-latest
+          name: Montaj v2 (iOS, sinov) — oxirgi versiya
           body: Oxirgi yig'ilgan IPA. Windows'da Sideloadly orqali iPhone'ga o'rnating.
           prerelease: true
           files: mobile/iosApp/build/Montaj.ipa
