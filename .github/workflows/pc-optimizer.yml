@@ -1,4 +1,4 @@
-name: PC Optimizer — build, test, release
+name: PC Optimizer — build, test, installer
 
 on:
   push:
@@ -12,13 +12,18 @@ on:
 permissions:
   contents: write
 
+env:
+  PRESENTMON_VERSION: "2.6.0"
+
 defaults:
   run:
     working-directory: pc-optimizer
 
 jobs:
   build:
-    runs-on: windows-latest
+    # The WPF app cross-compiles for Windows (EnableWindowsTargeting) and NSIS builds the
+    # Windows installer on Linux, so the whole pipeline runs on Ubuntu.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -26,31 +31,46 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore
-        run: dotnet restore UltimatePcOptimizer.slnx
-
       - name: Build
-        run: dotnet build UltimatePcOptimizer.slnx -c Release --no-restore
+        run: dotnet build UltimatePcOptimizer.slnx -c Release
 
       - name: Test
         run: dotnet test tests/UltimatePcOptimizer.Tests -c Release --no-build
 
       - name: Version
         id: version
-        shell: pwsh
         run: |
-          $ref = "${{ github.ref_name }}"
-          $v = if ($ref -like "pc-optimizer-v*") { $ref.Substring("pc-optimizer-v".Length) } else { "1.0.0-ci.${{ github.run_number }}" }
-          "value=$v" >> $env:GITHUB_OUTPUT
+          if [[ "$GITHUB_REF_NAME" == pc-optimizer-v* ]]; then v="${GITHUB_REF_NAME#pc-optimizer-v}"; else v="1.0.${GITHUB_RUN_NUMBER}"; fi
+          echo "value=$v" >> "$GITHUB_OUTPUT"
 
-      - name: Publish and build installer
-        shell: pwsh
-        run: ./scripts/publish.ps1 -Version "${{ steps.version.outputs.value }}" -SkipTests
+      - name: Download PresentMon (MIT, Intel) from its official release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asset=$(gh api "repos/GameTechDev/PresentMon/releases/tags/v${PRESENTMON_VERSION}" \
+            --jq '.assets[].name | select(test("^PresentMon-[0-9.]+-x64\\.exe$"))' | head -n1)
+          test -n "$asset" || { echo "PresentMon console asset not found"; exit 1; }
+          gh release download "v${PRESENTMON_VERSION}" --repo GameTechDev/PresentMon --pattern "$asset" --dir tools
+          ls -la tools
+
+      - name: Publish (self-contained win-x64)
+        run: >
+          dotnet publish src/UltimatePcOptimizer.App -c Release -r win-x64 --self-contained true
+          -p:Version=${{ steps.version.outputs.value }} -p:DebugType=none -o artifacts/publish
+
+      - name: Build installer (NSIS)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq nsis
+          test -n "$(ls artifacts/publish/tools/PresentMon-*-x64.exe)"
+          mkdir -p artifacts/installer
+          cd installer && makensis -V2 -DAPP_VERSION=${{ steps.version.outputs.value }} \
+            -DPUBLISH_DIR=../artifacts/publish -DOUT_DIR=../artifacts/installer UltimatePcOptimizer.nsi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: UltimatePcOptimizer-${{ steps.version.outputs.value }}
+          name: UltimatePcOptimizer-Setup-${{ steps.version.outputs.value }}-x64
           path: pc-optimizer/artifacts/installer/*.exe
+          compression-level: 0
 
       - name: GitHub Release
         if: startsWith(github.ref, 'refs/tags/pc-optimizer-v')

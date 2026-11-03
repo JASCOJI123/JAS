@@ -4,8 +4,8 @@ using UltimatePcOptimizer.Core.Models;
 namespace UltimatePcOptimizer.Core.Parsing;
 
 /// <summary>
-/// Reads PresentMon CSV output. Supports PresentMon 2.x columns (CPUStartTime, FrameTime — ms)
-/// and the 1.x / --v1_metrics columns (TimeInSeconds, MsBetweenPresents).
+/// Reads PresentMon CSV output: 2.6+ default (TimeInMs, MsBetweenPresents), --v2_metrics
+/// (CPUStartTime, FrameTime) and 1.x / --v1_metrics (TimeInSeconds, MsBetweenPresents).
 /// </summary>
 public sealed class PresentMonCsvParser
 {
@@ -37,16 +37,18 @@ public sealed class PresentMonCsvParser
     {
         int Find(string name) => Array.FindIndex(cells, c => c.Trim().Equals(name, StringComparison.OrdinalIgnoreCase));
 
+        // Frame time column: 2.x --v2_metrics uses FrameTime; 1.x and the 2.6+ default use MsBetweenPresents.
         var frame = Find("FrameTime");
-        var time = Find("CPUStartTime");
-        if (frame >= 0 && time >= 0)
+        if (frame < 0) frame = Find("MsBetweenPresents");
+        if (frame < 0) return;
+
+        // Timestamp column, in the unit its name states.
+        foreach (var (name, inMs) in new[] { ("CPUStartTime", true), ("TimeInMs", true), ("CPUStartTimeInMs", true), ("TimeInSeconds", false), ("CPUStartTimeInSeconds", false) })
         {
-            (_frameTimeIndex, _timeIndex, _timeInMilliseconds) = (frame, time, true);
+            var time = Find(name);
+            if (time < 0) continue;
+            (_frameTimeIndex, _timeIndex, _timeInMilliseconds) = (frame, time, inMs);
             return;
         }
-
-        frame = Find("MsBetweenPresents");
-        time = Find("TimeInSeconds");
-        if (frame >= 0 && time >= 0) (_frameTimeIndex, _timeIndex, _timeInMilliseconds) = (frame, time, false);
     }
 }

@@ -1,9 +1,11 @@
 # tools
 
-FPS Monitoring uchun **Intel PresentMon** (console versiyasi) shu papkaga joylanadi:
+FPS Monitoring uchun **Intel PresentMon** (console, MIT litsenziyasi — `PresentMon-LICENSE.txt`).
 
-1. https://github.com/GameTechDev/PresentMon/releases sahifasidan `PresentMon-<versiya>-x64.exe` ni yuklab oling.
-2. Faylni shu papkaga (`pc-optimizer/tools/`) qo'ying — build vaqtida avtomatik `tools/` ga nusxalanadi.
+- **CI** (`.github/workflows/pc-optimizer.yml`) PresentMon `v2.6.0` ni rasmiy GitHub release'dan yuklab,
+  installer ichiga avtomatik qo'shadi (`<o'rnatish papkasi>\tools\`).
+- **Lokal build** uchun https://github.com/GameTechDev/PresentMon/releases dan `PresentMon-<versiya>-x64.exe` ni
+  shu papkaga qo'ying — build vaqtida chiqish papkasidagi `tools/` ga nusxalanadi.
 
-PresentMon Windows ETW present eventlarini kuzatadi va o'yinga hech narsa inject qilmaydi — anti-cheat tizimlari bilan xavfsiz.
-`.exe` fayllar git'ga commit qilinmaydi (`.gitignore`); CI ularni release vaqtida yuklab oladi.
+PresentMon Windows ETW present eventlarini kuzatadi va o'yinga hech narsa inject qilmaydi.
+`.exe` fayllar git'ga commit qilinmaydi.

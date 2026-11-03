@@ -125,6 +125,14 @@ public class PlatformParserTests
     }
 
     [Fact]
+    public void Parses_presentmon_2_6_default_csv()
+    {
+        var parser = new PresentMonCsvParser();
+        parser.ParseLine("Application,ProcessID,SwapChainAddress,PresentRuntime,SyncInterval,PresentFlags,AllowsTearing,PresentMode,TimeInMs,MsBetweenSimulationStart,MsBetweenPresents,MsInPresentAPI");
+        Assert.Equal(new FrameSample(2.5, 8.33), parser.ParseLine("game.exe,1,0x1,DXGI,0,0,1,Hardware: Independent Flip,2500,8.1,8.33,0.2"));
+    }
+
+    [Fact]
     public void Parses_presentmon_v1_csv()
     {
         var parser = new PresentMonCsvParser();
