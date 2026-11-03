@@ -122,6 +122,13 @@ LibreHardwareMonitor low-level drayveri kerak; u mavjud bo'lmasa ACPI thermal zo
 
 Natija: `artifacts/installer/UltimatePcOptimizer-Setup-1.0.0-x64.exe` (Inno Setup 6 kerak).
 
+Muqobil — NSIS (Windows'da ham, Linux'da ham ishlaydi):
+
+```bash
+dotnet publish src/UltimatePcOptimizer.App -c Release -r win-x64 --self-contained true -p:Version=1.0.0 -p:DebugType=none -o artifacts/publish
+cd installer && makensis -DAPP_VERSION=1.0.0 -DPUBLISH_DIR=../artifacts/publish -DOUT_DIR=../artifacts/installer UltimatePcOptimizer.nsi
+```
+
 CI (`.github/workflows/pc-optimizer.yml`, windows-latest): har push'da build + test + installer artifact.
 `pc-optimizer-v1.2.0` tegi push qilinganda GitHub Release yaratiladi va installer biriktiriladi.
 
