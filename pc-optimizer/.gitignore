@@ -1,0 +1,9 @@
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+.vs/
+TestResults/
+# PresentMon is downloaded by the developer/CI, not committed.
+tools/*.exe

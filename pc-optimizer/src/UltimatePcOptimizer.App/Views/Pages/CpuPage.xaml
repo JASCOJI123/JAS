@@ -1,0 +1,77 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.CpuPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:CpuViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <TextBlock Text="CPU Optimizer" Style="{StaticResource H1}" />
+            <TextBlock Style="{StaticResource Muted}" Margin="0,4,14,18"><Run Text="{Binding CpuName, Mode=OneWay}" /> · <Run Text="{Binding CoresText, Mode=OneWay}" /></TextBlock>
+            <p:BusyStatus />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <c:RadialGauge Height="170" Label="CPU" Value="{Binding Snapshot.CpuLoadPercent}"
+                                   Caption="{Binding Snapshot.CpuTemperatureC, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0}°C'}" />
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <UniformGrid Columns="3">
+                            <StackPanel><TextBlock Text="Harorat" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.CpuTemperatureC, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0} °C'}" Style="{StaticResource StatValue}" /></StackPanel>
+                            <StackPanel><TextBlock Text="Chastota" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.CpuClockMhz, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0} MHz'}" Style="{StaticResource StatValue}" /></StackPanel>
+                            <StackPanel><TextBlock Text="Throttling" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Throttle.State, FallbackValue='—'}" Style="{StaticResource StatValue}" Foreground="{Binding Throttle.State, Converter={StaticResource StateBrush}}" /></StackPanel>
+                        </UniformGrid>
+                        <TextBlock Text="{Binding Throttle.Message}" Style="{StaticResource Body}" Margin="0,10,0,10" />
+                        <c:Sparkline Height="80" Values="{Binding History}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="1.3*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Power Plan" Style="{StaticResource H2}" />
+                        <ListBox ItemsSource="{Binding Plans}" SelectedItem="{Binding SelectedPlan}" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource NavItem}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,4">
+                                        <TextBlock Text="{Binding Name}" />
+                                        <TextBlock Text="  (faol)" Foreground="{StaticResource AccentBrush}" Visibility="{Binding IsActive, Converter={StaticResource Visible}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <Button Content="Tanlangan rejimni yoqish" Style="{StaticResource PrimaryButton}" Command="{Binding ApplyPlanCommand}" HorizontalAlignment="Left" Margin="0,12,0,0" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Yangilash" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" Margin="0" />
+                            <TextBlock Text="Fon jarayonlari (CPU)" Style="{StaticResource H2}" />
+                        </DockPanel>
+                        <DataGrid ItemsSource="{Binding TopProcesses}" MaxHeight="320">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Jarayon" Binding="{Binding Name}" Width="*" />
+                                <DataGridTextColumn Header="CPU" Binding="{Binding CpuPercent, StringFormat='{}{0:0.0}%'}" Width="70" />
+                                <DataGridTextColumn Header="RAM" Binding="{Binding WorkingSetBytes, Converter={StaticResource Bytes}}" Width="90" />
+                                <DataGridTextColumn Header="Turi" Binding="{Binding Category}" Width="110" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,42 @@
+<Application x:Class="UltimatePcOptimizer.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:pages="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:conv="clr-namespace:UltimatePcOptimizer.App.Converters"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme/Colors.xaml" />
+                <ResourceDictionary Source="Theme/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:BytesConverter x:Key="Bytes" />
+            <conv:NullableFormatConverter x:Key="Fmt" />
+            <conv:BoolToVisibilityConverter x:Key="Visible" />
+            <conv:BoolToVisibilityConverter x:Key="Hidden" Invert="True" />
+            <conv:StateToBrushConverter x:Key="StateBrush" />
+            <conv:EnumTextConverter x:Key="EnumText" />
+
+            <!-- Each page view model is rendered by its view. -->
+            <DataTemplate DataType="{x:Type vm:DashboardViewModel}"><pages:DashboardPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:OptimizeViewModel}"><pages:OptimizePage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ModesViewModel}"><pages:ModesPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:GamingBoosterViewModel}"><pages:GamingBoosterPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:FpsBoosterViewModel}"><pages:FpsBoosterPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:GameLibraryViewModel}"><pages:GameLibraryPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:FpsMonitorViewModel}"><pages:FpsMonitorPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CpuViewModel}"><pages:CpuPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:GpuViewModel}"><pages:GpuPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:RamViewModel}"><pages:RamPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:ProcessesViewModel}"><pages:ProcessesPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:CleanerViewModel}"><pages:CleanerPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:StartupViewModel}"><pages:StartupPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:HistoryViewModel}"><pages:HistoryPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SystemInfoViewModel}"><pages:SystemInfoPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:NetworkViewModel}"><pages:NetworkPage /></DataTemplate>
+            <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><pages:SettingsPage /></DataTemplate>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

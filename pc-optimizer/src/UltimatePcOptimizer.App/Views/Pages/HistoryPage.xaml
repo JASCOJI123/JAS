@@ -1,0 +1,73 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.HistoryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:HistoryViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Windows System Restore" Style="{StaticResource GhostButton}" Command="{Binding OpenSystemRestoreCommand}" />
+                    <Button Content="Restore Point yaratish" Style="{StaticResource PrimaryButton}" Command="{Binding CreateRestorePointCommand}" Margin="0" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Restore &amp; Optimization History" Style="{StaticResource H1}" />
+                    <TextBlock Text="Dastur qilgan har bir o'zgarish oldingi qiymati bilan saqlanadi. Undo istalgan guruhni aynan avvalgi holatiga qaytaradi." Style="{StaticResource Muted}" />
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="1.2*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Optimization History" Style="{StaticResource H2}" />
+                        <DataGrid ItemsSource="{Binding Batches}" SelectedItem="{Binding SelectedBatch}" MinHeight="380">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Sana" Binding="{Binding CreatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="130" />
+                                <DataGridTextColumn Header="Turi" Binding="{Binding Kind, Converter={StaticResource EnumText}}" Width="110" />
+                                <DataGridTextColumn Header="Nomi" Binding="{Binding Title}" Width="*" />
+                                <DataGridTemplateColumn Header="" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Button Content="Undo" Style="{StaticResource SmallButton}" Margin="0"
+                                                        Command="{Binding DataContext.UndoCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}"
+                                                        Visibility="{Binding RevertedAt, Converter={StaticResource Hidden}}" />
+                                                <TextBlock Text="Tiklangan" Style="{StaticResource Muted}" Visibility="{Binding RevertedAt, Converter={StaticResource Visible}}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="O'zgarishlar" Style="{StaticResource H2}" />
+                        <TextBlock Style="{StaticResource Muted}" Margin="0,0,0,8" Visibility="{Binding SelectedBatch.RestorePointDescription, Converter={StaticResource Visible}}">
+                            <Run Text="Restore Point: " /><Run Text="{Binding SelectedBatch.RestorePointDescription, Mode=OneWay}" />
+                        </TextBlock>
+                        <DataGrid ItemsSource="{Binding Records}" MinHeight="360">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="O'zgarish" Binding="{Binding Description}" Width="2*" />
+                                <DataGridTextColumn Header="Oldingi" Binding="{Binding Previous.Value, TargetNullValue=—}" Width="*" />
+                                <DataGridTextColumn Header="Yangi" Binding="{Binding NewValue}" Width="*" />
+                                <DataGridTextColumn Header="Holat" Binding="{Binding Status}" Width="90" />
+                                <DataGridTextColumn Header="Natija" Binding="{Binding ResultInfo}" Width="1.5*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

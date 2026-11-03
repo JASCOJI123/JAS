@@ -1,0 +1,87 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.OptimizePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:OptimizeViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <TextBlock Text="One Click Optimize" Style="{StaticResource H1}" />
+            <TextBlock Text="Avval tizim tahlil qilinadi. Hech narsa sizning ruxsatingizsiz o'zgartirilmaydi — har bir o'zgarishni alohida tanlaysiz va keyin Undo qila olasiz."
+                       Style="{StaticResource Muted}" Margin="0,4,14,18" />
+
+            <!-- Hero button -->
+            <Border Style="{StaticResource Card}" Padding="32" Visibility="{Binding HasPlan, Converter={StaticResource Hidden}}">
+                <StackPanel HorizontalAlignment="Center">
+                    <Button Command="{Binding AnalyzeCommand}" Style="{StaticResource PrimaryButton}" Padding="48,22" Margin="0" HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE945;" Style="{StaticResource Icon}" FontSize="22" Margin="0,0,14,0" />
+                            <TextBlock Text="ONE CLICK OPTIMIZE" FontSize="20" FontWeight="Black" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="Temp fayllar · Startup · Fon jarayonlari · Power Plan · Game Mode / Game Bar · Animatsiyalar"
+                               Style="{StaticResource Muted}" HorizontalAlignment="Center" Margin="0,16,0,0" />
+                    <TextBlock Text="{Binding ResultText}" Style="{StaticResource Body}" Foreground="{StaticResource SuccessBrush}" HorizontalAlignment="Center"
+                               TextAlignment="Center" Margin="0,16,0,0" Visibility="{Binding ResultText, Converter={StaticResource Visible}}" />
+                </StackPanel>
+            </Border>
+
+            <p:BusyStatus />
+
+            <!-- Plan review -->
+            <StackPanel Visibility="{Binding HasPlan, Converter={StaticResource Visible}}">
+                <ItemsControl ItemsSource="{Binding Steps}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:StepItem}">
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <DockPanel>
+                                        <TextBlock Text="{Binding Summary}" DockPanel.Dock="Right" Style="{StaticResource Muted}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" Margin="0" />
+                                    </DockPanel>
+                                    <ItemsControl ItemsSource="{Binding Findings}" Margin="0,8,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding StringFormat='• {0}'}" Style="{StaticResource Muted}" Margin="0,2" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <ItemsControl ItemsSource="{Binding Changes}" Margin="0,8,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type vm:ChangeItem}">
+                                                <Border Style="{StaticResource InnerCard}" Padding="12,9">
+                                                    <DockPanel>
+                                                        <Border DockPanel.Dock="Right" Style="{StaticResource Badge}">
+                                                            <TextBlock Text="{Binding Risk, Converter={StaticResource EnumText}}" FontSize="11"
+                                                                       Foreground="{Binding Risk, Converter={StaticResource StateBrush}}" />
+                                                        </Border>
+                                                        <CheckBox IsChecked="{Binding IsSelected}" Content="{Binding Description}" />
+                                                    </DockPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Button Content="Hammasini tanlash" Style="{StaticResource GhostButton}" Command="{Binding SelectAllCommand}" CommandParameter="true" />
+                            <Button Content="Bekor qilish" Style="{StaticResource GhostButton}" Command="{Binding SelectAllCommand}" CommandParameter="false" />
+                            <Button Content="Tanlanganlarni qo'llash" Style="{StaticResource PrimaryButton}" Command="{Binding ApplyCommand}" Margin="0" />
+                        </StackPanel>
+                        <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CreateRestorePoint}" Content="Avval Windows Restore Point yaratish" VerticalAlignment="Center" />
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

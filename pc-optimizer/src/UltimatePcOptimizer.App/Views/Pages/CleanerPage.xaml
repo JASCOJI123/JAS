@@ -1,0 +1,51 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.CleanerPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:CleanerViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Qayta skanerlash" Style="{StaticResource GhostButton}" Command="{Binding ScanCommand}" />
+                    <Button Content="Tanlanganlarni tozalash" Style="{StaticResource PrimaryButton}" Command="{Binding CleanCommand}" Margin="0" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Windows Cleaner" Style="{StaticResource H1}" />
+                    <TextBlock Style="{StaticResource Muted}"><Run Text="Jami topildi: " /><Run Text="{Binding TotalText, Mode=OneWay}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" /><Run Text=" · Temp fayllar 24 soatdan eski bo'lsagina o'chiriladi, ishlatilayotganlari o'tkazib yuboriladi." /></TextBlock>
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:CleanupItem}">
+                        <Border Style="{StaticResource Card}">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                    <TextBlock Text="{Binding SizeBytes, Converter={StaticResource Bytes}}" Style="{StaticResource StatValue}" HorizontalAlignment="Right" />
+                                    <TextBlock Style="{StaticResource Muted}" HorizontalAlignment="Right"><Run Text="{Binding FileCount, Mode=OneWay}" /> fayl</TextBlock>
+                                </StackPanel>
+                                <StackPanel>
+                                    <CheckBox IsChecked="{Binding IsSelected}">
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="14" />
+                                    </CheckBox>
+                                    <TextBlock Text="Faqat aniq roziligingiz bilan" Style="{StaticResource Muted}" Foreground="{StaticResource WarningBrush}" Margin="28,4,0,0"
+                                               Visibility="{Binding RequiresExplicitConsent, Converter={StaticResource Visible}}" />
+                                    <TextBlock Text="{Binding Note}" Style="{StaticResource Muted}" Margin="28,4,12,0" Visibility="{Binding Note, Converter={StaticResource Visible}}" />
+                                </StackPanel>
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

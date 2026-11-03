@@ -1,0 +1,63 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.GpuPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:GpuViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <Button DockPanel.Dock="Right" Content="Grafik profillar" Style="{StaticResource PrimaryButton}" Command="{Binding OpenProfilesCommand}" VerticalAlignment="Center" Margin="0" />
+                <StackPanel>
+                    <TextBlock Text="GPU Optimizer" Style="{StaticResource H1}" />
+                    <TextBlock Text="{Binding Primary.Name, FallbackValue='GPU aniqlanmoqda…'}" Style="{StaticResource Muted}" />
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <c:RadialGauge Height="170" Label="GPU" Value="{Binding Snapshot.GpuLoadPercent, TargetNullValue=0}"
+                                   IsAvailable="{Binding Snapshot.GpuLoadPercent, Converter={x:Static p:HasValue.Instance}}"
+                                   Caption="{Binding Snapshot.GpuTemperatureC, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0}°C'}" />
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <UniformGrid Columns="4">
+                            <StackPanel><TextBlock Text="Harorat" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.GpuTemperatureC, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0} °C'}" Style="{StaticResource StatValue}" /></StackPanel>
+                            <StackPanel><TextBlock Text="Chastota" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.GpuClockMhz, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0} MHz'}" Style="{StaticResource StatValue}" /></StackPanel>
+                            <StackPanel><TextBlock Text="VRAM" Style="{StaticResource Muted}" /><TextBlock Style="{StaticResource StatValue}" FontSize="17"><Run Text="{Binding Snapshot.Vram.UsedBytes, Converter={StaticResource Bytes}, Mode=OneWay, FallbackValue='N/A'}" /><Run Text=" / " /><Run Text="{Binding Snapshot.Vram.TotalBytes, Converter={StaticResource Bytes}, Mode=OneWay, FallbackValue='—'}" /></TextBlock></StackPanel>
+                            <StackPanel><TextBlock Text="Throttling" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Throttle.State, FallbackValue='—'}" Style="{StaticResource StatValue}" Foreground="{Binding Throttle.State, Converter={StaticResource StateBrush}}" /></StackPanel>
+                        </UniformGrid>
+                        <TextBlock Text="{Binding Throttle.Message}" Style="{StaticResource Body}" Margin="0,10,0,10" />
+                        <c:Sparkline Height="80" Values="{Binding History}" Stroke="{StaticResource Accent2Brush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Videokartalar" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding Gpus}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Model" Binding="{Binding Name}" Width="2*" />
+                            <DataGridTextColumn Header="Vendor" Binding="{Binding Vendor}" Width="90" />
+                            <DataGridTextColumn Header="VRAM" Binding="{Binding DedicatedMemoryBytes, Converter={StaticResource Bytes}}" Width="90" />
+                            <DataGridTextColumn Header="Drayver" Binding="{Binding DriverVersion}" Width="140" />
+                            <DataGridTextColumn Header="Drayver sanasi" Binding="{Binding DriverDate, StringFormat='{}{0:yyyy-MM-dd}'}" Width="120" />
+                            <DataGridCheckBoxColumn Header="Integratsiyalashgan" Binding="{Binding IsIntegrated}" Width="140" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Text="Drayverlarni faqat NVIDIA / AMD / Intel rasmiy saytidan yangilang. Dastur drayverlarni o'zgartirmaydi va overclock qilmaydi."
+                               Style="{StaticResource Muted}" Margin="0,10,0,0" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

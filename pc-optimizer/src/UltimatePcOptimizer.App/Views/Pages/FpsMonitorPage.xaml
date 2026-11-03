@@ -1,0 +1,122 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.FpsMonitorPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:FpsMonitorViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <TextBlock Text="FPS Monitoring" Style="{StaticResource H1}" />
+            <TextBlock Text="PresentMon (ETW) orqali — o'yinga hech narsa inject qilinmaydi. Overlay borderless/windowed rejimda ko'rinadi."
+                       Style="{StaticResource Muted}" Margin="0,4,14,18" />
+            <Border Style="{StaticResource InnerCard}" Margin="0,0,14,14" Visibility="{Binding FrameSourceWarning, Converter={StaticResource Visible}}">
+                <TextBlock Text="{Binding FrameSourceWarning}" Style="{StaticResource Body}" Foreground="{StaticResource WarningBrush}" />
+            </Border>
+            <p:BusyStatus />
+
+            <Border Style="{StaticResource Card}">
+                <WrapPanel>
+                    <ComboBox ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}" MinWidth="300" Margin="0,0,10,0" />
+                    <Button Content="Yangilash" Style="{StaticResource GhostButton}" Command="{Binding RefreshTargetsCommand}" />
+                    <Button Content="Boshlash" Style="{StaticResource PrimaryButton}" Command="{Binding StartCaptureCommand}" IsEnabled="{Binding IsCapturing, Converter={x:Static p:Inverse.Instance}}" />
+                    <Button Content="To'xtatish" Style="{StaticResource GhostButton}" Command="{Binding StopCaptureCommand}" IsEnabled="{Binding IsCapturing}" />
+                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsOverlayVisible}" Content="In-game overlay" Margin="12,0,0,0" />
+                </WrapPanel>
+            </Border>
+
+            <UniformGrid Columns="5">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="FPS" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Stats.CurrentFps, StringFormat='{}{0:0}'}" FontSize="34" FontWeight="Black" Foreground="{StaticResource AccentBrush}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Average FPS" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Stats.AverageFps, StringFormat='{}{0:0}'}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="1% Low FPS" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Stats.OnePercentLowFps, StringFormat='{}{0:0}'}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Frametime" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Stats.LastFrameTimeMs, StringFormat='{}{0:0.0} ms'}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="P99 frametime" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Stats.P99FrameTimeMs, StringFormat='{}{0:0.0} ms'}" Style="{StaticResource StatValue}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Frametime grafigi" Style="{StaticResource Muted}" Margin="0,0,0,8" />
+                    <c:Sparkline Height="110" Values="{Binding FrameTimeHistory}" AutoScale="True" Stroke="{StaticResource Accent2Brush}" />
+                </StackPanel>
+            </Border>
+
+            <UniformGrid Columns="6">
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="CPU" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.CpuLoadPercent, StringFormat='{}{0:0}%'}" Style="{StaticResource StatValue}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="GPU" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.GpuLoadPercent, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0}%'}" Style="{StaticResource StatValue}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="CPU °C" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.CpuTemperatureC, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0}'}" Style="{StaticResource StatValue}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="GPU °C" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.GpuTemperatureC, Converter={StaticResource Fmt}, ConverterParameter='{}{0:0}'}" Style="{StaticResource StatValue}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="RAM" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.Memory.UsedPercent, StringFormat='{}{0:0}%'}" Style="{StaticResource StatValue}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="VRAM" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Snapshot.Vram.UsedBytes, Converter={StaticResource Bytes}, FallbackValue='N/A'}" Style="{StaticResource StatValue}" /></StackPanel></Border>
+            </UniformGrid>
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Benchmark — optimizatsiyadan oldin va keyin" Style="{StaticResource H2}" />
+                    <WrapPanel>
+                        <ComboBox ItemsSource="{Binding Labels}" SelectedItem="{Binding BenchmarkLabel}" MinWidth="220" Margin="0,0,10,0" />
+                        <ComboBox ItemsSource="{Binding Durations}" SelectedItem="{Binding BenchmarkSeconds}" MinWidth="90" Margin="0,0,10,0" ItemStringFormat="{}{0} s" />
+                        <Button Content="Benchmarkni boshlash" Style="{StaticResource PrimaryButton}" Command="{Binding RunBenchmarkCommand}" />
+                    </WrapPanel>
+                    <ProgressBar Style="{StaticResource UsageBar}" Value="{Binding BenchmarkProgress}" Margin="0,12,0,0"
+                                 Visibility="{Binding IsBenchmarkRunning, Converter={StaticResource Visible}}" />
+
+                    <DataGrid ItemsSource="{Binding Results}" Margin="0,14,0,0" MaxHeight="260">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Sana" Binding="{Binding RecordedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="130" />
+                            <DataGridTextColumn Header="O'yin" Binding="{Binding GameName}" Width="*" />
+                            <DataGridTextColumn Header="Bosqich" Binding="{Binding Label}" Width="170" />
+                            <DataGridTextColumn Header="Avg FPS" Binding="{Binding Frames.AverageFps, StringFormat='{}{0:0}'}" Width="80" />
+                            <DataGridTextColumn Header="1% Low" Binding="{Binding Frames.OnePercentLowFps, StringFormat='{}{0:0}'}" Width="80" />
+                            <DataGridTextColumn Header="Frametime" Binding="{Binding Frames.AverageFrameTimeMs, StringFormat='{}{0:0.0} ms'}" Width="90" />
+                            <DataGridTextColumn Header="CPU" Binding="{Binding AverageCpuPercent, StringFormat='{}{0:0}%'}" Width="60" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <WrapPanel Margin="0,14,0,0">
+                        <TextBlock Text="Solishtirish:" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox ItemsSource="{Binding Results}" SelectedItem="{Binding CompareBefore}" MinWidth="260" Margin="0,0,10,0">
+                            <ComboBox.ItemTemplate><DataTemplate><TextBlock><Run Text="{Binding Label, Mode=OneWay}" /> · <Run Text="{Binding RecordedAt, StringFormat='{}{0:MM-dd HH:mm}', Mode=OneWay}" /></TextBlock></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="→" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <ComboBox ItemsSource="{Binding Results}" SelectedItem="{Binding CompareAfter}" MinWidth="260">
+                            <ComboBox.ItemTemplate><DataTemplate><TextBlock><Run Text="{Binding Label, Mode=OneWay}" /> · <Run Text="{Binding RecordedAt, StringFormat='{}{0:MM-dd HH:mm}', Mode=OneWay}" /></TextBlock></DataTemplate></ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </WrapPanel>
+                    <UniformGrid Columns="3" Margin="0,12,0,0" Visibility="{Binding Comparison, Converter={StaticResource Visible}}">
+                        <StackPanel><TextBlock Text="Average FPS" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Comparison.AverageFpsChangePercent, StringFormat='{}{0:+0.0;-0.0;0}%'}" Style="{StaticResource StatValue}" Foreground="{StaticResource AccentBrush}" /></StackPanel>
+                        <StackPanel><TextBlock Text="1% Low FPS" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Comparison.OnePercentLowChangePercent, StringFormat='{}{0:+0.0;-0.0;0}%'}" Style="{StaticResource StatValue}" Foreground="{StaticResource AccentBrush}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Frametime" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Comparison.FrameTimeChangePercent, StringFormat='{}{0:+0.0;-0.0;0}%'}" Style="{StaticResource StatValue}" /></StackPanel>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

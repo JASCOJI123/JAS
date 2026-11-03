@@ -1,0 +1,70 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.NetworkPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:NetworkViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <Button DockPanel.Dock="Right" Content="Diagnostika" Style="{StaticResource PrimaryButton}" Command="{Binding DiagnoseCommand}" VerticalAlignment="Center" Margin="0" />
+                <StackPanel>
+                    <TextBlock Text="Network" Style="{StaticResource H1}" />
+                    <TextBlock Text="Internet Connection Diagnostics va Network Latency Monitoring. Tarmoq sozlamalari o'zgartirilmaydi." Style="{StaticResource Muted}" />
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <UniformGrid Columns="4" DataContext="{Binding Diagnostics}">
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="Adapter" Style="{StaticResource Muted}" /><TextBlock Text="{Binding HasActiveAdapter}" Style="{StaticResource StatValue}" Foreground="{Binding HasActiveAdapter, Converter={StaticResource StateBrush}}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="Gateway (router)" Style="{StaticResource Muted}" /><TextBlock Text="{Binding GatewayLatency.AverageMs, StringFormat='{}{0:0} ms', FallbackValue='—'}" Style="{StaticResource StatValue}" Foreground="{Binding HasGateway, Converter={StaticResource StateBrush}}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="DNS" Style="{StaticResource Muted}" /><TextBlock Text="{Binding DnsResolves}" Style="{StaticResource StatValue}" Foreground="{Binding DnsResolves, Converter={StaticResource StateBrush}}" /></StackPanel></Border>
+                <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="Internet ping" Style="{StaticResource Muted}" /><TextBlock Text="{Binding InternetLatency.AverageMs, StringFormat='{}{0:0} ms', FallbackValue='—'}" Style="{StaticResource StatValue}" Foreground="{Binding InternetReachable, Converter={StaticResource StateBrush}}" /></StackPanel></Border>
+            </UniformGrid>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,10">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <TextBox Text="{Binding Host}" Width="180" Margin="0,0,10,0" />
+                            <Button Style="{StaticResource GhostButton}" Command="{Binding ToggleMonitoringCommand}" Margin="0">
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="Monitoringni boshlash" />
+                                            <Style.Triggers><DataTrigger Binding="{Binding IsMonitoring}" Value="True"><Setter Property="Text" Value="To'xtatish" /></DataTrigger></Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock Text="Network Latency Monitoring" Style="{StaticResource H2}" Margin="0" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <UniformGrid Columns="4" Margin="0,0,0,10">
+                        <StackPanel><TextBlock Text="O'rtacha" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Current.AverageMs, StringFormat='{}{0:0} ms', FallbackValue='—'}" Style="{StaticResource StatValue}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Jitter" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Current.JitterMs, StringFormat='{}{0:0.0} ms', FallbackValue='—'}" Style="{StaticResource StatValue}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Max" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Current.MaxMs, StringFormat='{}{0:0} ms', FallbackValue='—'}" Style="{StaticResource StatValue}" /></StackPanel>
+                        <StackPanel><TextBlock Text="Packet loss" Style="{StaticResource Muted}" /><TextBlock Text="{Binding Current.PacketLossPercent, StringFormat='{}{0:0}%', FallbackValue='—'}" Style="{StaticResource StatValue}" /></StackPanel>
+                    </UniformGrid>
+                    <c:Sparkline Height="90" Values="{Binding LatencyHistory}" AutoScale="True" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Faol adapterlar" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding Adapters}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Nomi" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="Turi" Binding="{Binding Type}" Width="120" />
+                            <DataGridTextColumn Header="Tezlik (bit/s)" Binding="{Binding SpeedBitsPerSecond, StringFormat='{}{0:N0}'}" Width="150" />
+                            <DataGridTextColumn Header="Gateway" Binding="{Binding Gateway}" Width="130" />
+                            <DataGridTextColumn Header="Tavsif" Binding="{Binding Description}" Width="2*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

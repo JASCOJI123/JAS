@@ -1,0 +1,64 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.StartupPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:StartupViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <Button DockPanel.Dock="Right" Content="Yangilash" Style="{StaticResource GhostButton}" Command="{Binding RefreshCommand}" VerticalAlignment="Center" Margin="0" />
+                <StackPanel>
+                    <TextBlock Text="Startup Manager" Style="{StaticResource H1}" />
+                    <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding SummaryText, Mode=OneWay}" /> · <Run Text="{Binding BootText, Mode=OneWay}" /> · Windows uchun muhim komponentlarni o'chirib bo'lmaydi.</TextBlock>
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <Border Style="{StaticResource Card}">
+                <DataGrid ItemsSource="{Binding Entries}" MinHeight="320">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Holat" Width="90">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource SmallButton}" Margin="0"
+                                            Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                                        <TextBlock>
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="O'chiq" />
+                                                    <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsEnabled}" Value="True">
+                                                            <Setter Property="Text" Value="Yoqilgan" />
+                                                            <Setter Property="Foreground" Value="{StaticResource SuccessBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Dastur" Binding="{Binding Name}" Width="2*" />
+                        <DataGridTemplateColumn Header="Ta'sir" Width="100">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Impact, Converter={StaticResource EnumText}}" Foreground="{Binding Impact, Converter={StaticResource StateBrush}}" FontWeight="SemiBold" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="RAM" Binding="{Binding MemoryBytes, Converter={StaticResource Bytes}}" Width="90" />
+                        <DataGridTextColumn Header="Joylashuv" Binding="{Binding Location}" Width="160" />
+                        <DataGridTextColumn Header="Himoya" Binding="{Binding ProtectionReason}" Width="160" />
+                        <DataGridTextColumn Header="Buyruq" Binding="{Binding Command}" Width="3*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,143 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.SystemInfoPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:SystemInfoViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <Button DockPanel.Dock="Right" Content="Qayta aniqlash" Style="{StaticResource PrimaryButton}" Command="{Binding DetectCommand}" VerticalAlignment="Center" Margin="0" />
+                <StackPanel>
+                    <TextBlock Text="Auto PC Detection" Style="{StaticResource H1}" />
+                    <TextBlock Text="Kompyuter konfiguratsiyasi va unga mos optimizatsiya tavsiyalari." Style="{StaticResource Muted}" />
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <UniformGrid Columns="3" DataContext="{Binding Profile}">
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="CPU" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Cpu.Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding Cpu.Cores, Mode=OneWay}" /> yadro · <Run Text="{Binding Cpu.Threads, Mode=OneWay}" /> oqim</TextBlock>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="GPU" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding PrimaryGpu.Name}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource Muted}"><Run Text="Drayver " /><Run Text="{Binding PrimaryGpu.DriverVersion, Mode=OneWay}" /></TextBlock>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="RAM" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding TotalRamBytes, Converter={StaticResource Bytes}}" FontWeight="SemiBold" />
+                        <TextBlock Style="{StaticResource Muted}"><Run Text="{Binding RamSpeedMhz, Mode=OneWay}" /> MHz</TextBlock>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Motherboard" Style="{StaticResource Muted}" />
+                        <TextBlock FontWeight="SemiBold" TextWrapping="Wrap"><Run Text="{Binding Motherboard.Manufacturer, Mode=OneWay}" /> <Run Text="{Binding Motherboard.Product, Mode=OneWay}" /></TextBlock>
+                        <TextBlock Style="{StaticResource Muted}"><Run Text="BIOS " /><Run Text="{Binding Motherboard.BiosVersion, Mode=OneWay}" /></TextBlock>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Windows" Style="{StaticResource Muted}" />
+                        <TextBlock Text="{Binding Os.Caption}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Style="{StaticResource Muted}"><Run Text="Build " /><Run Text="{Binding Os.Build, Mode=OneWay}" /> · <Run Text="{Binding Os.Architecture, Mode=OneWay}" /></TextBlock>
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Qurilma turi" Style="{StaticResource Muted}" />
+                        <TextBlock FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Desktop" />
+                                    <Style.Triggers><DataTrigger Binding="{Binding IsLaptop}" Value="True"><Setter Property="Text" Value="Noutbuk" /></DataTrigger></Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Disklar" Style="{StaticResource H2}" />
+                        <ItemsControl ItemsSource="{Binding Profile.Disks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel Margin="0,4">
+                                        <TextBlock DockPanel.Dock="Right" Text="{Binding MediaType, Converter={StaticResource EnumText}}" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
+                                        <TextBlock><Run Text="{Binding Model, Mode=OneWay}" /> · <Run Text="{Binding SizeBytes, Converter={StaticResource Bytes}, Mode=OneWay}" /></TextBlock>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Monitorlar" Style="{StaticResource H2}" />
+                        <ItemsControl ItemsSource="{Binding Profile.Displays}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Margin="0,4"><Run Text="{Binding Width, Mode=OneWay}" />×<Run Text="{Binding Height, Mode=OneWay}" /> · <Run Text="{Binding RefreshRateHz, Mode=OneWay}" /> Hz (max <Run Text="{Binding MaxRefreshRateHz, Mode=OneWay}" /> Hz)</TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Konfiguratsiyaga mos tavsiyalar" Style="{StaticResource H2}" />
+                    <ItemsControl ItemsSource="{Binding Recommendations}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource InnerCard}">
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Content="Ochish" Style="{StaticResource SmallButton}" Margin="0"
+                                                Command="{Binding DataContext.OpenCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding Page}"
+                                                Visibility="{Binding Page, Converter={StaticResource Visible}}" />
+                                        <Rectangle Width="4" RadiusX="2" RadiusY="2" Fill="{Binding Severity, Converter={StaticResource StateBrush}}" Margin="0,0,12,0" />
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Detail}" Style="{StaticResource Muted}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Driver Information" Style="{StaticResource H2}" />
+                    <DataGrid ItemsSource="{Binding Drivers}" MaxHeight="360">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Qurilma" Binding="{Binding DeviceName}" Width="2*" />
+                            <DataGridTextColumn Header="Sinf" Binding="{Binding DeviceClass}" Width="100" />
+                            <DataGridTextColumn Header="Ishlab chiqaruvchi" Binding="{Binding Provider}" Width="*" />
+                            <DataGridTextColumn Header="Versiya" Binding="{Binding Version}" Width="140" />
+                            <DataGridTextColumn Header="Sana" Binding="{Binding Date, StringFormat='{}{0:yyyy-MM-dd}'}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

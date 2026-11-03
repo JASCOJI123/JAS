@@ -1,0 +1,59 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:SettingsViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+            <TextBlock Text="Settings" Style="{StaticResource H1}" />
+            <TextBlock Style="{StaticResource Muted}" Margin="0,4,14,18"><Run Text="Versiya " /><Run Text="{Binding Version, Mode=OneWay}" /></TextBlock>
+            <p:BusyStatus />
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Automatic Optimization" Style="{StaticResource H2}" />
+                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AutoOptimizationEnabled}" Content="Keraksiz fayllarni muntazam tekshirish" />
+                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding AutoApplySafeCleanup}" IsEnabled="{Binding AutoOptimizationEnabled}"
+                              Content="Xavfsiz vaqtinchalik fayllarni avtomatik tozalash (tizim sozlamalari hech qachon avtomatik o'zgartirilmaydi)" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <TextBlock Text="Interval (soat):" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBox Text="{Binding AutoOptimizationIntervalHours}" Width="80" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Xavfsizlik" Style="{StaticResource H2}" />
+                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CreateRestorePoint}" Content="Muhim optimizatsiyadan oldin Windows Restore Point yaratish" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Tarmoq" Style="{StaticResource H2}" />
+                    <TextBlock Text="Latency o'lchash uchun hostlar (vergul bilan)" Style="{StaticResource Muted}" Margin="0,0,0,6" />
+                    <TextBox Text="{Binding LatencyHosts}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Yangilanishlar" Style="{StaticResource H2}" />
+                    <CheckBox Style="{StaticResource ToggleSwitch}" IsChecked="{Binding CheckForUpdates}" Content="Ishga tushganda yangilanishlarni tekshirish" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button Content="Hozir tekshirish" Style="{StaticResource GhostButton}" Command="{Binding CheckUpdatesCommand}" />
+                        <Button Style="{StaticResource PrimaryButton}" Command="{Binding OpenUpdateCommand}" Visibility="{Binding Update, Converter={StaticResource Visible}}">
+                            <TextBlock><Run Text="Yuklab olish " /><Run Text="{Binding Update.Version, Mode=OneWay}" /></TextBlock>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <Button Content="Saqlash" Style="{StaticResource PrimaryButton}" Command="{Binding SaveCommand}" />
+                <Button Content="Ma'lumotlar va loglar papkasi" Style="{StaticResource GhostButton}" Command="{Binding OpenDataFolderCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

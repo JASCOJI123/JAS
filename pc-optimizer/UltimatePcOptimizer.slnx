@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/UltimatePcOptimizer.App/UltimatePcOptimizer.App.csproj" />
+    <Project Path="src/UltimatePcOptimizer.Core/UltimatePcOptimizer.Core.csproj" />
+    <Project Path="src/UltimatePcOptimizer.Data/UltimatePcOptimizer.Data.csproj" />
+    <Project Path="src/UltimatePcOptimizer.Platform/UltimatePcOptimizer.Platform.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UltimatePcOptimizer.Tests/UltimatePcOptimizer.Tests.csproj" />
+  </Folder>
+</Solution>

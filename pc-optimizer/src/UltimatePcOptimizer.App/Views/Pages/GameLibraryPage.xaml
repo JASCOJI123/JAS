@@ -1,0 +1,47 @@
+<UserControl x:Class="UltimatePcOptimizer.App.Views.Pages.GameLibraryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:UltimatePcOptimizer.App.Controls"
+             xmlns:p="clr-namespace:UltimatePcOptimizer.App.Views.Pages"
+             xmlns:vm="clr-namespace:UltimatePcOptimizer.App.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DataContext="{d:DesignInstance vm:GameLibraryViewModel}">
+    <ScrollViewer Style="{StaticResource PageScroll}">
+        <StackPanel>
+            <DockPanel Margin="0,0,14,18">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="O'yin qo'shish" Style="{StaticResource GhostButton}" Command="{Binding AddManualCommand}" />
+                    <Button Content="Qayta skanerlash" Style="{StaticResource PrimaryButton}" Command="{Binding ScanCommand}" Margin="0" />
+                </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="Game Library" Style="{StaticResource H1}" />
+                    <TextBlock Text="Steam, Epic Games va Riot Games o'yinlari avtomatik aniqlanadi. Har bir o'yin uchun alohida profil yarating." Style="{StaticResource Muted}" />
+                </StackPanel>
+            </DockPanel>
+            <p:BusyStatus />
+            <Border Style="{StaticResource Card}">
+                <DataGrid ItemsSource="{Binding Games}" SelectedItem="{Binding SelectedGame}" MinHeight="300">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="O'yin" Binding="{Binding Name}" Width="2*" />
+                        <DataGridTextColumn Header="Launcher" Binding="{Binding Launcher}" Width="100" />
+                        <DataGridTextColumn Header="Papka" Binding="{Binding InstallDirectory}" Width="3*" />
+                        <DataGridTemplateColumn Header="" Width="330">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Profil yaratish" Style="{StaticResource SmallButton}"
+                                                Command="{Binding DataContext.CreateProfileCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                        <Button Content="Yuqori unumli GPU" Style="{StaticResource SmallButton}"
+                                                Command="{Binding DataContext.PreferHighPerformanceGpuCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
