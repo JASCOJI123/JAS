@@ -42,6 +42,8 @@ public sealed partial class GamingBoosterViewModel : PageViewModel
     [ObservableProperty] private bool _isSessionActive;
     [ObservableProperty] private string _sessionText = "Faol sessiya yo'q";
     [ObservableProperty] private bool _autoDetection;
+    [ObservableProperty] private bool _autoBoostNewGames;
+    private bool _loading;
     [ObservableProperty] private RunningGame? _selectedRunningGame;
 
     public GamingBoosterViewModel(Notifier notifier, GamingSessionManager sessions, GameDetectionService detection,
@@ -69,7 +71,11 @@ public sealed partial class GamingBoosterViewModel : PageViewModel
 
     public override async Task OnNavigatedToAsync()
     {
-        AutoDetection = (await _settings.LoadAsync()).GameAutoDetection;
+        var settings = await _settings.LoadAsync();
+        _loading = true;
+        AutoDetection = settings.GameAutoDetection;
+        AutoBoostNewGames = settings.AutoBoostNewGames == true;
+        _loading = false;
         RefreshRunning();
         UpdateSession();
         Profiles.Clear();
@@ -94,6 +100,43 @@ public sealed partial class GamingBoosterViewModel : PageViewModel
     }
 
     partial void OnAutoDetectionChanged(bool value) => _ = SaveDetectionAsync(value);
+
+    partial void OnAutoBoostNewGamesChanged(bool value)
+    {
+        if (!_loading) _ = SaveAutoBoostAsync(value);
+    }
+
+    /// <summary>Turning auto boost on (with consent) also enables it for games that already have a profile.</summary>
+    private async Task SaveAutoBoostAsync(bool enabled)
+    {
+        try
+        {
+            if (enabled && !await _consent.ConfirmAsync(new ConsentRequest("Avtomatik Gaming Mode",
+                    "Barcha aniqlangan o'yinlar ishga tushganda Gaming Mode avtomatik yoqiladi va o'yin yopilganda tiklanadi.",
+                    GamingSessionManager.DefaultBoostActions, Core.Changes.RiskLevel.Low)))
+            {
+                _loading = true;
+                AutoBoostNewGames = false;
+                _loading = false;
+                return;
+            }
+
+            var settings = await _settings.LoadAsync();
+            await _settings.SaveAsync(settings with { AutoBoostNewGames = enabled });
+            if (enabled)
+            {
+                foreach (var profile in await _profiles.GetAllAsync())
+                    if (!profile.AutoBoost) await _profiles.SaveAsync(profile with { AutoBoost = true });
+                Profiles.Clear();
+                foreach (var p in await _profiles.GetAllAsync()) Profiles.Add(new GameProfileItem(p));
+            }
+            Notifier.Show(enabled ? "Avtomatik Gaming Mode yoqildi" : "Avtomatik Gaming Mode o'chirildi");
+        }
+        catch (Exception ex)
+        {
+            Notifier.Show(ex.Message, isError: true);
+        }
+    }
 
     private async Task SaveDetectionAsync(bool enabled)
     {

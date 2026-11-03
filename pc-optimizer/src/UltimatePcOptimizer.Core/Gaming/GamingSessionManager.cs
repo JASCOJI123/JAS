@@ -23,7 +23,7 @@ public sealed class GamingSessionManager(
     IPowerPlanService power,
     IRegistryAccess registry,
     IGameProfileStore profiles,
-    IConsentService consent,
+    ISettingsStore settings,
     HardwareProfileCache hardware,
     ISystemMonitor monitor,
     ILogger<GamingSessionManager> logger)
@@ -35,6 +35,9 @@ public sealed class GamingSessionManager(
     public GamingSession? ActiveSession { get; private set; }
 
     public event EventHandler? SessionChanged;
+
+    /// <summary>Raised when a game was detected but not boosted, with the reason (shown in the UI).</summary>
+    public event EventHandler<(RunningGame Game, string Reason)>? BoostSkipped;
 
     public void Attach(GameDetectionService detection)
     {
@@ -56,12 +59,19 @@ public sealed class GamingSessionManager(
     {
         try
         {
-            var profile = await GetOrAskProfileAsync(game).ConfigureAwait(false);
-            if (profile.AutoBoost) await StartSessionAsync(game, profile, CancellationToken.None).ConfigureAwait(false);
+            var profile = await GetOrCreateProfileAsync(game).ConfigureAwait(false);
+            if (profile.AutoBoost)
+            {
+                await StartSessionAsync(game, profile, CancellationToken.None).ConfigureAwait(false);
+                return;
+            }
+            logger.LogInformation("{Game} detected; auto boost is off for its profile", game.GameName);
+            BoostSkipped?.Invoke(this, (game, "Auto boost o'chiq — Gaming Booster bo'limida yoqing"));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to start gaming session for {Game}", game.GameName);
+            BoostSkipped?.Invoke(this, (game, $"Xato: {ex.Message}"));
         }
     }
 
@@ -77,24 +87,26 @@ public sealed class GamingSessionManager(
         }
     }
 
-    /// <summary>The first time a game is seen, the user decides whether it should be boosted automatically.</summary>
-    private async Task<GameProfile> GetOrAskProfileAsync(RunningGame game)
+    /// <summary>
+    /// A newly seen game gets a profile whose AutoBoost follows the user's global answer. No dialog is shown
+    /// here: the game is already running and possibly fullscreen, so a prompt would be hidden behind it.
+    /// </summary>
+    internal async Task<GameProfile> GetOrCreateProfileAsync(RunningGame game)
     {
         var existing = await profiles.GetAsync(game.GameId).ConfigureAwait(false);
         if (existing is not null) return existing;
 
+        var autoBoost = (await settings.LoadAsync().ConfigureAwait(false)).AutoBoostNewGames == true;
         var known = GameCatalog.FindById(game.GameId);
-        var defaults = GameProfile.CreateDefault(game.GameId, game.GameName, known?.HasKernelAntiCheat ?? false, autoBoost: false);
-        var accepted = await consent.ConfirmAsync(new ConsentRequest(
-            $"{game.GameName} aniqlandi",
-            "Gaming Booster bu o'yin ishga tushganda avtomatik yoqilsinmi? O'yin yopilganda barcha sozlamalar tiklanadi.",
-            DescribeProfile(defaults),
-            RiskLevel.Low)).ConfigureAwait(false);
-
-        var profile = defaults with { AutoBoost = accepted };
+        var profile = GameProfile.CreateDefault(game.GameId, game.GameName, known?.HasKernelAntiCheat ?? false, autoBoost);
         await profiles.SaveAsync(profile).ConfigureAwait(false);
+        logger.LogInformation("Created profile for {Game} (auto boost: {AutoBoost})", game.GameName, autoBoost);
         return profile;
     }
+
+    /// <summary>What auto boost does, for the consent dialog.</summary>
+    public static IReadOnlyList<string> DefaultBoostActions { get; } =
+        DescribeProfile(GameProfile.CreateDefault("example", "example", hasKernelAntiCheat: false, autoBoost: true));
 
     public static IReadOnlyList<string> DescribeProfile(GameProfile p)
     {

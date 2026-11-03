@@ -20,7 +20,7 @@ public class GamingSessionTests
         IChangeHandler[] handlers = [new RegistryChangeHandler(registry), new PowerPlanChangeHandler(power), new ProcessPriorityChangeHandler(processes)];
         var executor = new ChangeExecutor(handlers, journal, NullLogger<ChangeExecutor>.Instance);
         var manager = new GamingSessionManager(executor, journal, processes, power, registry, new GameProfileRepository(db.Db),
-            new FakeConsent(true), new HardwareProfileCache(new FakeHardware()), new FakeMonitor(), NullLogger<GamingSessionManager>.Instance);
+            new SettingsRepository(db.Db), new HardwareProfileCache(new FakeHardware()), new FakeMonitor(), NullLogger<GamingSessionManager>.Instance);
         return new Rig(manager, processes, registry, power, executor, journal);
     }
 
@@ -83,12 +83,70 @@ public class GamingSessionTests
 
         // Simulate a crash: a fresh manager instance with the same database and system state.
         var recovered = new GamingSessionManager(rig.Executor, rig.Journal, rig.Processes, rig.Power, rig.Registry,
-            new GameProfileRepository(db.Db), new FakeConsent(true), new HardwareProfileCache(new FakeHardware()),
+            new GameProfileRepository(db.Db), new SettingsRepository(db.Db), new HardwareProfileCache(new FakeHardware()),
             new FakeMonitor(), NullLogger<GamingSessionManager>.Instance);
         await recovered.RecoverAsync();
 
         Assert.Equal(KnownPowerPlans.Balanced, rig.Power.GetActivePlan()!.Id);
         Assert.Equal(ProcessPriorityLevel.Normal, rig.Processes.GetPriority(100, null));
         Assert.Empty(await rig.Journal.GetUnrevertedBatchesAsync(BatchKind.GamingSession));
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(null, false)]
+    public async Task New_game_profile_follows_the_global_answer_without_prompting(bool? answer, bool expected)
+    {
+        await using var db = await TempDatabase.CreateAsync();
+        await new SettingsRepository(db.Db).SaveAsync(new AppSettings { AutoBoostNewGames = answer });
+        var rig = Create(db);
+
+        var profile = await rig.Manager.GetOrCreateProfileAsync(new RunningGame(100, "cs2", null, "cs2", "Counter-Strike 2", null));
+
+        Assert.Equal(expected, profile.AutoBoost);
+        Assert.Equal(expected, (await new GameProfileRepository(db.Db).GetAsync("cs2"))!.AutoBoost);
+    }
+
+    [Fact]
+    public async Task Detected_cs2_is_boosted_automatically_when_enabled()
+    {
+        await using var db = await TempDatabase.CreateAsync();
+        await new SettingsRepository(db.Db).SaveAsync(new AppSettings { AutoBoostNewGames = true });
+        var rig = Create(db);
+        rig.Processes.Processes.Add(FakeProcesses.Make(100, "cs2", ProcessCategory.Game));
+
+        var detection = new GameDetectionService(rig.Processes, NullLogger<GameDetectionService>.Instance);
+        var started = new TaskCompletionSource();
+        rig.Manager.SessionChanged += (_, _) => started.TrySetResult();
+        rig.Manager.Attach(detection);
+        detection.Poll();
+
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal("cs2", rig.Manager.ActiveSession?.Game.GameId);
+
+        var ended = new TaskCompletionSource();
+        rig.Manager.SessionChanged += (_, _) => { if (rig.Manager.ActiveSession is null) ended.TrySetResult(); };
+        rig.Processes.Processes.Clear();
+        detection.Poll();
+        await ended.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal(KnownPowerPlans.Balanced, rig.Power.GetActivePlan()!.Id);
+    }
+
+    [Fact]
+    public async Task Skipped_boost_reports_a_reason()
+    {
+        await using var db = await TempDatabase.CreateAsync();
+        var rig = Create(db);
+        rig.Processes.Processes.Add(FakeProcesses.Make(100, "cs2", ProcessCategory.Game));
+        var detection = new GameDetectionService(rig.Processes, NullLogger<GameDetectionService>.Instance);
+        var skipped = new TaskCompletionSource<string>();
+        rig.Manager.BoostSkipped += (_, e) => skipped.TrySetResult(e.Reason);
+        rig.Manager.Attach(detection);
+
+        detection.Poll();
+
+        Assert.Contains("Auto boost", await skipped.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Null(rig.Manager.ActiveSession);
     }
 }

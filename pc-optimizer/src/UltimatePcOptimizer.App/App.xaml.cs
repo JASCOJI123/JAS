@@ -57,8 +57,9 @@ public partial class App : Application
             MainWindow = window;
             window.Show();
 
-            // Started only after the main window exists: a game that is already running triggers a consent
-            // dialog, and that dialog must never become the application's main window.
+            // Asked once, here, before any game is detected: a prompt shown while a fullscreen game runs stays hidden behind it.
+            if (settings.AutoBoostNewGames is null) await AskAutoBoostAsync(_host.Services);
+
             if (settings.GameAutoDetection) _host.Services.GetRequiredService<GameDetectionService>().Start(TimeSpan.FromSeconds(2));
 
             _ = RunBackgroundTasksAsync(_host.Services);
@@ -116,6 +117,17 @@ public partial class App : Application
         detection.UpdateLibrary(await services.GetRequiredService<IGameLibraryStore>().GetAllAsync());
         sessions.Attach(detection);
         return settings;
+    }
+
+    private static async Task AskAutoBoostAsync(IServiceProvider services)
+    {
+        var accepted = await services.GetRequiredService<IConsentService>().ConfirmAsync(new ConsentRequest(
+            "Gaming Booster",
+            "O'yin (CS2, Valorant, Dota 2 va boshqalar) ishga tushganda Gaming Mode avtomatik yoqilsinmi? O'yin yopilganda barcha sozlamalar avtomatik tiklanadi. Keyin Gaming Booster bo'limida o'zgartirish mumkin.",
+            GamingSessionManager.DefaultBoostActions,
+            Core.Changes.RiskLevel.Low));
+        var store = services.GetRequiredService<ISettingsStore>();
+        await store.SaveAsync((await store.LoadAsync()) with { AutoBoostNewGames = accepted });
     }
 
     private async Task RunBackgroundTasksAsync(IServiceProvider services)

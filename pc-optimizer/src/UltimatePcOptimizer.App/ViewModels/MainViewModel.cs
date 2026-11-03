@@ -16,6 +16,7 @@ public sealed partial class MainViewModel : ObservableObject
         navigation.Requested += (_, key) => CurrentPage = Pages.FirstOrDefault(p => p.Key == key) ?? CurrentPage;
         sessions.SessionChanged += (_, _) => Ui.Post(() =>
             SessionBadge = sessions.ActiveSession is { } s ? $"🎮 {s.Game.GameName} — Gaming Mode" : string.Empty);
+        sessions.BoostSkipped += (_, e) => Ui.Post(() => SessionBadge = $"🎮 {e.Game.GameName} aniqlandi — {e.Reason}");
         CurrentPage = Pages.FirstOrDefault();
     }
 
